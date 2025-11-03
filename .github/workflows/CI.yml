@@ -53,7 +53,8 @@ jobs:
   docker-push: # 2) Docker 이미지 빌드/푸시 Job — PR에서는 실행 X
     name: Docker Build & Push
     # 조건: PR 이벤트가 아니고 && 대상 브랜치가 main일 때만 이미지 푸시
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: build # 빌드 Job 성공 후에만 실행
     runs-on: ubuntu-latest
 
