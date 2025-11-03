@@ -1,0 +1,93 @@
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+
+### Java & Spring Boot ###
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+### Spring Config ###
+application-dev.properties
+application-prod.properties
+application-test.properties
+application-secret.properties
+
+
+### Env & Credentials ###
+.env
+.env.*
+*.bak
+*.local
+*.key
+*.pem
+*.crt
+
+### Docker ###
+.docker/
+docker-compose.override.yml
+docker-compose.local.yml
+Dockerfile.*
+*.tar
+*.pid
+
+### AI / 모델 관련 ###
+*.pth
+*.pt
+*.h5
+*.ckpt
+*.npz
+*.onnx
+__pycache__/
+*.pickle
+*.joblib
+
+### VS Code ###
+.vscode/
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+out/
+
+### Eclipse / STS ###
+.project
+.classpath
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+__MACOSX/
+.DS_Store?
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+### Linux / 공통 ###
+*~
+*.swp
+*.swo
+.nfs*
+
+### 파일 권한/속성 캐시 방지 ###
+*.orig
+*.tmp
+*.bak
+*.old
+
+# 서버 IP 이름으로 생긴 파일/폴더 예방
+**/ubuntu@*
