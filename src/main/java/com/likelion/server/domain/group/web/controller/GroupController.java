@@ -3,6 +3,8 @@ package com.likelion.server.domain.group.web.controller;
 import com.likelion.server.domain.group.service.GroupService;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
 import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
+import com.likelion.server.domain.group.web.dto.GroupJoinRequest;
+import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
 import com.likelion.server.global.response.SuccessResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +30,15 @@ public class GroupController {
     ) {
         CreateGroupResponse data = groupService.create(userId, createGroupRequest);
         return SuccessResponse.created(data);
+    }
+
+    // 그룹 입장
+    @PostMapping("/group/join")
+    public SuccessResponse<GroupJoinResponse> joinGroup(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @Valid @RequestBody GroupJoinRequest groupJoinRequest
+    ) {
+        GroupJoinResponse data = groupService.joinByCode(userId, groupJoinRequest.groupCode());
+        return SuccessResponse.ok(data);
     }
 }
