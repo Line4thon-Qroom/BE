@@ -16,15 +16,15 @@ public class Group extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 10)
     private String name;
 
+    @Column(unique = true, length = 6)
     private String groupCode;   // 초대 코드
+
     private String examDate;    // 예정 시험일 (문자열로 관리 가능)
+
+    @Column(nullable = false)
     private Integer imageNum;
 
-    public Group(String name, String groupCode) {
-        this.name = name;
-        this.groupCode = groupCode;
-    }
 }
