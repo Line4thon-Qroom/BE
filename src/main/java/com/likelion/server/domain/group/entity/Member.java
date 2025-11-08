@@ -10,7 +10,7 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@Table(name = "member")
+@Table(name = "member", uniqueConstraints = @UniqueConstraint(columnNames = {"group_id", "user_id"}))
 public class Member {
 
     @Id
@@ -29,4 +29,9 @@ public class Member {
     private Role role;
 
 
+    public Member(Group groupId, User userId, Role role) {
+        this.group = groupId;
+        this.user = userId;
+        this.role = role;
+    }
 }
