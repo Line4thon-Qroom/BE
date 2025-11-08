@@ -27,6 +27,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String password;  // 암호화된 비밀번호
 
+    @Column(name = "refresh_token", length = 512)
     private String refreshToken;
 
     @Builder
