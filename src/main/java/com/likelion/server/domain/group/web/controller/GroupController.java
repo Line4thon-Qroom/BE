@@ -1,4 +1,4 @@
-package com.likelion.server.domain.group.controller;
+package com.likelion.server.domain.group.web.controller;
 
 import com.likelion.server.domain.group.service.GroupService;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
