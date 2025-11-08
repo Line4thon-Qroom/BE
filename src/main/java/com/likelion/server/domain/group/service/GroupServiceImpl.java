@@ -3,10 +3,14 @@ package com.likelion.server.domain.group.service;
 import com.likelion.server.domain.group.entity.Group;
 import com.likelion.server.domain.group.entity.Member;
 import com.likelion.server.domain.group.entity.enums.Role;
+import com.likelion.server.domain.group.exception.AlreadyGroupMemberException;
+import com.likelion.server.domain.group.exception.GroupErrorCode;
+import com.likelion.server.domain.group.exception.GroupNotFoundException;
 import com.likelion.server.domain.group.repository.GroupMemberRepository;
 import com.likelion.server.domain.group.repository.StudyGroupRepository;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
 import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
+import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
 import com.likelion.server.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +69,30 @@ public class GroupServiceImpl implements GroupService {
                 saveGroup.getGroupCode(),
                 saveGroup.getImageNum()
         );
+    }
+
+    @Override
+    public GroupJoinResponse joinByCode(Long userId, String groupCode) {
+
+        Group group = studyGroupRepository.findByGroupCode(groupCode);
+        if (group == null) {
+            throw new GroupNotFoundException();
+        }
+
+        // 중복 가입 방지
+        if (groupMemberRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+            throw new AlreadyGroupMemberException();
+        }
+
+        // Member 엔티티 생성/저장
+        Member member = new Member(
+                group,
+                em.getReference(User.class, userId),
+                Role.MEMBER
+        );
+        groupMemberRepository.save(member);
+
+        return new GroupJoinResponse(group.getId());
     }
 
     private String generateUniqueCode(int length) {
