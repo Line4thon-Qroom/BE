@@ -1,0 +1,40 @@
+package com.likelion.server.domain.pdf.web.controller;
+
+import com.likelion.server.domain.pdf.service.PdfService;
+import com.likelion.server.domain.pdf.web.dto.PdfDeleteResponse;
+import com.likelion.server.domain.pdf.web.dto.PdfUploadResponse;
+import com.likelion.server.global.response.SuccessResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/pdf")
+public class PdfController {
+
+    private final PdfService pdfService;
+
+    // PDF 업로드
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SuccessResponse<PdfUploadResponse> uploadPdf(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @RequestParam("group_id") Long groupId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        PdfUploadResponse data = pdfService.upload(userId, groupId, file);
+        return SuccessResponse.created(data);
+    }
+
+    // PDF 삭제
+    @DeleteMapping("/{pdf_id}")
+    public SuccessResponse<PdfDeleteResponse> deletePdf(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("pdf_id") Long pdfId
+    ) {
+        PdfDeleteResponse data = pdfService.delete(pdfId, userId);
+        return SuccessResponse.ok(data);
+    }
+}
