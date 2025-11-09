@@ -5,7 +5,6 @@ import com.likelion.server.domain.qa.web.dto.QaCommentRequest;
 import com.likelion.server.domain.qa.web.dto.QaCommentResponse;
 import com.likelion.server.domain.qa.web.dto.QaPostRequest;
 import com.likelion.server.domain.qa.web.dto.QaPostResponse;
-import com.likelion.server.domain.user.entity.User;
 import com.likelion.server.global.response.SuccessResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
