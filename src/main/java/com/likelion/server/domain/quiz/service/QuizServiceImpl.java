@@ -3,24 +3,28 @@ package com.likelion.server.domain.quiz.service;
 import com.likelion.server.domain.pdf.entity.Pdf;
 import com.likelion.server.domain.pdf.repository.PdfRepository;
 import com.likelion.server.domain.qa.entity.QaBoard;
+import com.likelion.server.domain.qa.exception.QaNotFoundException;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
+import com.likelion.server.domain.qa.repository.QaCommentRepository;
+import com.likelion.server.domain.qa.repository.QaPostRepository;
 import com.likelion.server.domain.quiz.entity.Quiz;
 import com.likelion.server.domain.quiz.entity.QuizQuestion;
 import com.likelion.server.domain.quiz.entity.enums.Difficulty;
-import com.likelion.server.domain.quiz.entity.enums.Type;
+import com.likelion.server.domain.quiz.exception.QuizNotFoundException;
+import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizQuestionRepository;
 import com.likelion.server.domain.quiz.web.dto.CreateQuizRequest;
 import com.likelion.server.domain.quiz.web.dto.CreateQuizResponse;
 import com.likelion.server.domain.quiz.web.dto.QuizDetailResponse;
+import com.likelion.server.domain.quiz.web.dto.QuizQaResponse;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
-import static com.likelion.server.domain.quiz.entity.enums.Type.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,10 @@ public class QuizServiceImpl implements QuizService {
     private final QaBoardRepository qaBoardRepository;
     private final AiQuizGenerator aiQuizGenerator;
     private final EntityManager em;
+
+    private final QuizOptionRepository quizOptionRepository;
+    private final QaPostRepository qaPostRepository;
+    private final QaCommentRepository qaCommentRepository;
 
     // 세부 로직 분리 메서드
     private Pdf validateAndGetPdf(Long pdfId) {
@@ -100,5 +108,49 @@ public class QuizServiceImpl implements QuizService {
         return QuizDetailResponse.fromEntities(quiz, questions);
     }
 
+    // 3. 시험지+QA 게시판 통합 조회
+    @Transactional(readOnly = true)
+    @Override
+    public QuizQaResponse getQuizWithQa(Long quizId) {
 
+        // Quiz 조회
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(QuizNotFoundException::new);
+
+        // 질문 목록 조회
+        List<QuizQaResponse.QuestionDto> questionDtos = quizQuestionRepository.findAllByQuizId(quizId)
+                .stream()
+                .map(question -> {
+                    // 객관식 보기 목록 조회
+                    List<QuizQaResponse.OptionDto> optionDtos = quizOptionRepository.findAllByQuestion(question)
+                            .stream()
+                            .map(QuizQaResponse.OptionDto::new)
+                            .collect(Collectors.toList());
+
+                    return new QuizQaResponse.QuestionDto(question, optionDtos);
+                })
+                .collect(Collectors.toList());
+
+        QuizQaResponse.QuizDto quizDto = new QuizQaResponse.QuizDto(quiz, questionDtos);
+
+        QaBoard qaBoard = qaBoardRepository.findByQuizId(quizId)
+                .orElseThrow(() -> new QaNotFoundException());
+
+        // 게시글 목록 조회
+        List<QuizQaResponse.PostDto> postDtos = qaPostRepository.findAllByBoard(qaBoard)
+                .stream()
+                .map(post -> {
+                    // 댓글 목록 조회
+                    List<QuizQaResponse.CommentDto> commentDtos = qaCommentRepository.findAllByPost(post)
+                            .stream()
+                            .map(QuizQaResponse.CommentDto::new)
+                            .collect(Collectors.toList());
+
+                    return new QuizQaResponse.PostDto(post, commentDtos);
+                })
+                .collect(Collectors.toList());
+
+        QuizQaResponse.QaBoardDto qaBoardDto = new QuizQaResponse.QaBoardDto(qaBoard, postDtos);
+        return new QuizQaResponse(quizDto, qaBoardDto);
+    }
 }
