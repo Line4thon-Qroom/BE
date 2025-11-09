@@ -38,7 +38,26 @@ public class PdfServiceImpl implements PdfService {
     // PDF 업로드
     @Override
     public PdfUploadResponse upload(Long userId, Long groupId, MultipartFile file) {
+
+        // (1) 파일 유효성 검사
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어 있습니다.");
+        }
+
         String originalName = file.getOriginalFilename();
+        String contentType = file.getContentType();
+
+        // (2) 확장자 검사
+        if (originalName == null || !originalName.toLowerCase().endsWith(".pdf")) {
+            throw new IllegalArgumentException("PDF 파일만 업로드할 수 있습니다. (확장자 오류)");
+        }
+
+        // (3) MIME 타입 검사
+        if (contentType == null || !contentType.equalsIgnoreCase("application/pdf")) {
+            throw new IllegalArgumentException("유효한 PDF 파일이 아닙니다. (MIME 타입 오류)");
+        }
+
+        // (4) 파일 키 생성
         String fileKey = String.format("%d/%s", groupId, originalName);
 
         try {
