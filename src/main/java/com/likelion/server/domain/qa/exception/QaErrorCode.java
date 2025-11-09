@@ -9,7 +9,8 @@ import static com.likelion.server.global.constant.StaticValue.NOT_FOUND;
 @Getter
 @AllArgsConstructor
 public enum QaErrorCode implements BaseResponseCode {
-    QA_404_NOT_FOUND_BY_CODE("QA_404_NOT_FOUND_BY_CODE", NOT_FOUND, "해당 ID의 게시판을 찾을 수 없습니다.");
+    QA_404_NOT_FOUND_BY_CODE("QA_404_NOT_FOUND_BY_CODE", NOT_FOUND, "해당 ID의 게시판을 찾을 수 없습니다."),
+    QA_POST_NOT_FOUND("QA_POST_404_NOT_FOUND", NOT_FOUND, "해당 ID의 게시글을 찾을 수 없습니다.");
 
     private final String code;
     private final int httpStatus;

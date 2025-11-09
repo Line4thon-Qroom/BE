@@ -1,6 +1,8 @@
 package com.likelion.server.domain.qa.web.controller;
 
 import com.likelion.server.domain.qa.service.QaService;
+import com.likelion.server.domain.qa.web.dto.QaCommentRequest;
+import com.likelion.server.domain.qa.web.dto.QaCommentResponse;
 import com.likelion.server.domain.qa.web.dto.QaPostRequest;
 import com.likelion.server.domain.qa.web.dto.QaPostResponse;
 import com.likelion.server.domain.user.entity.User;
@@ -27,6 +29,16 @@ public class QaController {
             @AuthenticationPrincipal(expression = "id") Long userId
     ) {
         QaPostResponse data = qaService.createPost(request, userId);
+        return SuccessResponse.created(data);
+    }
+
+    // QA 게시글 댓글 등록
+    @PostMapping("/comment") //
+    public SuccessResponse<QaCommentResponse> createComment(
+            @Valid @RequestBody QaCommentRequest request,
+            @AuthenticationPrincipal(expression = "id") Long userId
+    ) {
+        QaCommentResponse data = qaService.createComment(request, userId);
         return SuccessResponse.created(data);
     }
 }
