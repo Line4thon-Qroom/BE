@@ -13,52 +13,61 @@ import org.springframework.stereotype.Component;
 @Component
 public class QuizPromptBuilder {
 
-    public String build(String pdfContent, CreateQuizRequest req, String pdfTitle) {
+    String build(String pdfText, CreateQuizRequest req, String pdfTitle) {
         return String.format("""
-        당신은 대학생을 위한 학습용 퀴즈를 만들어주는 AI 교사입니다.
-        오직 아래의 PDF 내용 안에서만 문제를 출제해야 합니다.
-        외부 지식은 절대 사용하지 마세요.
+        당신은 대학생을 위한 학습용 퀴즈를 만드는 AI 교사입니다.
+        오직 아래의 PDF 내용 안에서만 문제를 출제하세요. 외부 지식은 절대 사용하지 마세요.
 
         🎯 목표:
-        PDF 내용을 기반으로 %d개의 퀴즈 문제를 생성하세요.
+        PDF 내용을 기반으로 %d개의 문제를 생성하세요.
+        난이도: "%s"
+        문제 유형: %s
 
         🧩 문제 조건:
-        - 난이도는 "%s"입니다.
-        - 문제 유형은 다음 중에서 골라 다양하게 섞어주세요: %s.
-        - 각 문제는 반드시 다음 4개의 속성을 가져야 합니다:
-          • question : 문제 본문 (학생이 답변해야 할 질문)
-          • answer : 정답
-          • type : 문제 유형 (OX / 객관식 / 단답형)
-          • explanation : 간단한 해설 (정답 이유나 추가 설명)
-        - 모든 문제는 아래 JSON 형식으로만 출력하세요.
-        - 설명, 인사말, 추가 텍스트 없이 JSON 배열만 출력해야 합니다.
+        - 객관식 문제는 반드시 4개의 보기를 포함해야 합니다.
+        - 객관식 문제는 JSON 내에 "options" 배열을 포함해야 합니다.
+        - 단답형 문제는 짧은 문장으로 정답을 제시합니다.
+        - OX 문제는 정답이 반드시 "O" 또는 "X" 중 하나여야 합니다.
+        - 모든 문제는 PDF의 내용을 정확히 반영해야 합니다.
 
-        📘 출력 예시 (정확히 이 형식으로만 출력하세요):
+        ⚙️ 출력 형식 (JSON 배열만 출력하세요):
         [
           {
-            "question": "4호선톤 프로젝트의 주요 기술 스택은 무엇인가?",
-            "answer": "Django",
+            "question": "주문과 상품의 관계는?",
             "type": "객관식",
-            "explanation": "Django는 Python 기반 백엔드 프레임워크입니다."
+            "options": ["1. 일대다", "2. 다대다", "3. 일대일", "4. 다대일"],
+            "answer": "2",
+            "explanation": "주문과 상품은 다대다 관계이며, 이를 주문상품 엔티티로 풀었다."
           },
           {
-            "question": "4호선톤은 협업 중심의 프로젝트이다. (O/X)",
-            "answer": "O",
+            "question": "회원은 여러 상품을 주문할 수 있다. (O/X)",
             "type": "OX",
-            "explanation": "팀 단위 협업이 핵심인 프로젝트입니다."
+            "answer": "O",
+            "explanation": "회원과 주문은 일대다 관계다."
+          },
+          {
+            "question": "상품의 종류는?",
+            "type": "단답형",
+            "answer": "도서, 음반, 영화",
+            "explanation": "상품은 세 가지 종류로 구분된다."
           }
         ]
 
         ⚖️ 난이도 기준:
-        - 상: 개념 응용, 문장 해석, 세부적 내용 이해가 필요한 문제
-        - 중: 핵심 개념, 원리, 주요 내용을 직접적으로 묻는 문제
-        - 하: 정의, 용어, 단순 사실을 확인하는 문제
+        - 상: 개념 응용, 세부 내용 이해
+        - 중: 핵심 개념 및 정의
+        - 하: 단순 사실 또는 용어 확인
 
         📄 PDF 제목: %s
-        📑 PDF 내용:
+        📑 PDF 내용 (발췌):
         %s
-    """, req.total_questions(), req.difficulty(),
-                String.join(", ", req.question_types()), pdfTitle, pdfContent);
+        """,
+                req.total_questions(),
+                req.difficulty(),
+                String.join(", ", req.question_types()),
+                pdfTitle,
+                pdfText.substring(0, Math.min(pdfText.length(), 6500))
+        );
     }
 }
 
