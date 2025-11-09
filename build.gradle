@@ -39,6 +39,9 @@ dependencies {
 	// gpt
 	implementation 'com.theokanning.openai-gpt3-java:client:0.12.0'
 
+	// PDFBox
+	implementation 'org.apache.pdfbox:pdfbox:2.0.30'
+
 	// test
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

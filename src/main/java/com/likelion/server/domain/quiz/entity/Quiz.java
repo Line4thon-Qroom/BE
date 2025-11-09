@@ -33,5 +33,9 @@ public class Quiz extends BaseEntity {
     private Integer totalQuestions;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 10)
     private Difficulty difficulty;
+
+    @Column(length = 100)
+    private String questionTypes;
 }
