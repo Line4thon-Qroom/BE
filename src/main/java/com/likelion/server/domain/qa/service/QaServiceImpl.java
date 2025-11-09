@@ -8,16 +8,15 @@ import com.likelion.server.domain.qa.exception.QaPostNotFoundException;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
 import com.likelion.server.domain.qa.repository.QaCommentRepository;
 import com.likelion.server.domain.qa.repository.QaPostRepository;
-import com.likelion.server.domain.qa.web.dto.QaCommentRequest;
-import com.likelion.server.domain.qa.web.dto.QaCommentResponse;
-import com.likelion.server.domain.qa.web.dto.QaPostRequest;
-import com.likelion.server.domain.qa.web.dto.QaPostResponse;
+import com.likelion.server.domain.qa.web.dto.*;
 import com.likelion.server.domain.user.entity.User;
 import com.likelion.server.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -80,5 +79,28 @@ public class QaServiceImpl implements QaService {
 
         // Return
         return new QaCommentResponse(savedComment);
+    }
+
+    @Override
+    public QaBoardRefreshResponse getBoard(Long quizId) {
+
+        // quiz_id로 QaBoard 조회
+        QaBoard board = qaBoardRepository.findByQuizId(quizId)
+                .orElseThrow(QaNotFoundException::new);
+
+        // board의 모든 QaPost 조회
+        List<QaPost> posts = qaPostRepository.findAllByBoard(board);
+
+        // 각 QaPost를 PostDto로 변환
+        List<QaBoardRefreshResponse.PostDto> postDtos = posts.stream()
+                .map(post -> {
+                    // 각 post의 댓글 수 조회
+                    Integer commentsCount = qaCommentRepository.countByPost(post);
+                    return new QaBoardRefreshResponse.PostDto(post, commentsCount);
+                })
+                .toList();
+
+        // return
+        return new QaBoardRefreshResponse(board, postDtos);
     }
 }
