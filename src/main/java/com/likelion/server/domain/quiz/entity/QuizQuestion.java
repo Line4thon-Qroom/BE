@@ -4,6 +4,9 @@ import com.likelion.server.domain.quiz.entity.enums.Type;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,6 +32,15 @@ public class QuizQuestion {
 
     @Column(columnDefinition = "TEXT")
     private String explanation;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<QuizOption> options = new ArrayList<>();
+
+    public void addOption(QuizOption option) {
+        options.add(option);
+        option.setQuestion(this);
+    }
 
 
 }

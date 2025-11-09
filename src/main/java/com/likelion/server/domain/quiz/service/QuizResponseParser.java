@@ -3,6 +3,7 @@ package com.likelion.server.domain.quiz.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.likelion.server.domain.quiz.entity.Quiz;
+import com.likelion.server.domain.quiz.entity.QuizOption;
 import com.likelion.server.domain.quiz.entity.QuizQuestion;
 import com.likelion.server.domain.quiz.entity.enums.Type;
 import org.springframework.stereotype.Component;
@@ -80,6 +81,52 @@ public class QuizResponseParser {
                         .correctAnswer(correctAnswer)
                         .explanation(explanation)
                         .build();
+
+                // 객관식이면 보기 자동 생성
+                if (type == Type.MULTIPLE_CHOICE) {
+                    // AI 응답이 보기 리스트를 제공하는 경우
+                    if (node.has("options")) {
+                        for (JsonNode optionNode : node.get("options")) {
+                            String optionText = optionNode.asText();
+                            QuizOption option = QuizOption.builder()
+                                    .question(question)
+                                    .optionText(optionText)
+                                    .isAnswer(optionText.equals(correctAnswer))
+                                    .build();
+                            question.getOptions().add(option);
+                        }
+                    }
+                    // AI 응답이 보기 배열을 제공하지 않은 경우 (기본 4개 보기 예시)
+                    else {
+                        String[] defaultOptions = {"A", "B", "C", "D"};
+                        for (String opt : defaultOptions) {
+                            QuizOption option = QuizOption.builder()
+                                    .question(question)
+                                    .optionText(opt)
+                                    .isAnswer(false)
+                                    .build();
+                            question.getOptions().add(option);
+                        }
+                    }
+                }
+
+                // OX 문제라면 O, X 보기 자동 추가
+                else if (type == Type.OX) {
+                    QuizOption o = QuizOption.builder()
+                            .question(question)
+                            .optionText("O")
+                            .isAnswer(correctAnswer.equalsIgnoreCase("O"))
+                            .build();
+
+                    QuizOption x = QuizOption.builder()
+                            .question(question)
+                            .optionText("X")
+                            .isAnswer(correctAnswer.equalsIgnoreCase("X"))
+                            .build();
+
+                    question.getOptions().addAll(List.of(o, x));
+                }
+
 
                 questions.add(question);
                 System.out.println("[DEBUG] ✅ 문제 추가됨 → " + questionText);

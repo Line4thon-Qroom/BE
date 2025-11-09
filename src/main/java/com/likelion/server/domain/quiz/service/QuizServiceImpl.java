@@ -34,26 +34,15 @@ public class QuizServiceImpl implements QuizService {
     private final AiQuizGenerator aiQuizGenerator;
     private final EntityManager em;
 
-    @Override
-    public CreateQuizResponse createQuiz(Long userId, CreateQuizRequest request) {
-
-        // PDF 검증
-        Pdf pdf = pdfRepository.findById(request.pdf_id())
+    // 세부 로직 분리 메서드
+    private Pdf validateAndGetPdf(Long pdfId) {
+        return pdfRepository.findById(pdfId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 PDF를 찾을 수 없습니다."));
+    }
 
-        // 라운드 계산
-        int round = quizRepository.countByPdfId(pdf.getId()) + 1;
-
-        // String → Difficulty enum 변환
-        Difficulty difficulty = switch (request.difficulty()) {
-            case "상" -> Difficulty.상;
-            case "중" -> Difficulty.중;
-            case "하" -> Difficulty.하;
-            default -> throw new IllegalArgumentException("잘못된 난이도 값입니다: " + request.difficulty());
-        };
-
-        // Quiz 생성
-        Quiz quiz = Quiz.builder()
+    private Quiz createQuizEntity(Pdf pdf, CreateQuizRequest request, int round) {
+        Difficulty difficulty = Difficulty.fromKorean(request.difficulty());
+        return Quiz.builder()
                 .pdf(pdf)
                 .round(round)
                 .difficulty(difficulty)
@@ -61,76 +50,54 @@ public class QuizServiceImpl implements QuizService {
                 .totalQuestions(request.total_questions())
                 .title(pdf.getFileName())
                 .build();
-        Quiz savedQuiz = quizRepository.saveAndFlush(quiz);
+    }
 
-        // AI 호출 (동기)
-        List<QuizQuestion> generatedQuestions = aiQuizGenerator.generateQuestions(pdf, quiz, request);
-
-        // 생성된 문제 저장
-        quizQuestionRepository.saveAll(generatedQuestions);
-
-        // QA 게시판 생성
-        QaBoard qaBoard = QaBoard.builder()
+    private QaBoard createQaBoard(Pdf pdf, Quiz quiz) {
+        return QaBoard.builder()
                 .quiz(quiz)
-                .boardName(pdf.getFileName())
+                .boardName(pdf.getFileName() + " Quiz 게시판")
                 .group(pdf.getGroup())
-                .build();
-        qaBoardRepository.save(qaBoard);
-
-        // 응답 생성
-        return CreateQuizResponse.builder()
-                .id(quiz.getId())
-                .pdf_id(pdf.getId())
-                .round(round)
-                .difficulty(Difficulty.valueOf(quiz.getDifficulty().name()))
-                .question_types(request.question_types())
-                .total_questions(quiz.getTotalQuestions())
-                .qa_board(new CreateQuizResponse.QaBoard(
-                        qaBoard.getId(),
-                        qaBoard.getBoardName()
-                ))
                 .build();
     }
 
 
-    // 퀴즈 조회
+    // 1. 퀴즈 생성
+    @Override
+    public CreateQuizResponse createQuiz(Long userId, CreateQuizRequest request) {
+
+        // PDF 검증 및 조회
+        Pdf pdf = validateAndGetPdf(request.pdf_id());
+
+        // 라운드 계산
+        int round = quizRepository.countByPdfId(pdf.getId()) + 1;
+
+        // 퀴즈 생성 및 저장
+        Quiz quiz = createQuizEntity(pdf, request, round);
+        quizRepository.saveAndFlush(quiz);
+
+        // AI 퀴즈 생성
+        List<QuizQuestion> generatedQuestions = aiQuizGenerator.generateQuestions(pdf, quiz, request);
+
+        // 문제 저장 (Cascade 안 쓰는 경우 명시적으로 saveAll)
+        quizQuestionRepository.saveAll(generatedQuestions);
+
+        // QA 게시판 생성
+        QaBoard qaBoard = createQaBoard(pdf, quiz);
+        qaBoardRepository.save(qaBoard);
+
+        // 응답 DTO 변환
+        return CreateQuizResponse.fromEntity(quiz, qaBoard);
+    }
+
+
+    // 2. 퀴즈 조회
     @Override
     public QuizDetailResponse getQuizDetail(Long quizId) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 퀴즈를 찾을 수 없습니다."));
-
         List<QuizQuestion> questions = quizQuestionRepository.findAllByQuizId(quizId);
 
-        return QuizDetailResponse.builder()
-                .quiz(new QuizDetailResponse.QuizInfo(
-                        quiz.getId(),
-                        quiz.getPdf().getId(),
-                        quiz.getPdf().getFileName(),
-                        quiz.getDifficulty().name(),
-                        quiz.getRound(),
-                        quiz.getTotalQuestions(),
-                        quiz.getCreatedAt()
-                ))
-                .questions(
-                        questions.stream()
-                                .map(q -> new QuizDetailResponse.QuestionInfo(
-                                        q.getId(),
-                                        convertTypeToKorean(q.getType()),
-                                        q.getQuestionText(),
-                                        q.getCorrectAnswer(),
-                                        q.getExplanation()
-                                ))
-                                .toList()
-                )
-                .build();
-    }
-
-    private String convertTypeToKorean(Type type) {
-        return switch (type) {
-            case OX -> "OX";
-            case MULTIPLE_CHOICE -> "객관식";
-            case SHORT_ANSWER -> "단답형";
-        };
+        return QuizDetailResponse.fromEntities(quiz, questions);
     }
 
 
