@@ -1,7 +1,8 @@
 package com.likelion.server.domain.pdf.web.controller;
 
-import com.likelion.server.domain.pdf.service.PdfService;
+import com.likelion.server.domain.pdf.service.PdfServiceImpl;
 import com.likelion.server.domain.pdf.web.dto.PdfDeleteResponse;
+import com.likelion.server.domain.pdf.web.dto.PdfGroupListResponse;
 import com.likelion.server.domain.pdf.web.dto.PdfUploadResponse;
 import com.likelion.server.global.response.SuccessResponse;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/pdf")
 public class PdfController {
 
-    private final PdfService pdfService;
+    private final PdfServiceImpl pdfServiceImpl;
 
     // PDF 업로드
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -24,7 +25,7 @@ public class PdfController {
             @RequestParam("group_id") Long groupId,
             @RequestPart("file") MultipartFile file
     ) {
-        PdfUploadResponse data = pdfService.upload(userId, groupId, file);
+        PdfUploadResponse data = pdfServiceImpl.upload(userId, groupId, file);
         return SuccessResponse.created(data);
     }
 
@@ -34,7 +35,17 @@ public class PdfController {
             @AuthenticationPrincipal(expression = "id") Long userId,
             @PathVariable("pdf_id") Long pdfId
     ) {
-        PdfDeleteResponse data = pdfService.delete(pdfId, userId);
+        PdfDeleteResponse data = pdfServiceImpl.delete(pdfId, userId);
+        return SuccessResponse.ok(data);
+    }
+
+    //그룹별 pdf 조회
+    @GetMapping()
+    public SuccessResponse<PdfGroupListResponse> getGroupPdfList(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @RequestParam("group_id") Long groupId
+    ) {
+        PdfGroupListResponse data = pdfServiceImpl.getPdfListByGroup(groupId);
         return SuccessResponse.ok(data);
     }
 }
