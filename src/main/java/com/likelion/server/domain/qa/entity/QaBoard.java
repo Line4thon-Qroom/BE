@@ -20,8 +20,8 @@ public class QaBoard {
     @JoinColumn(name = "group_id", nullable = false)
     private Group group;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "quiz_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id", unique = true)
     private Quiz quiz;
 
     @Column(nullable = false)

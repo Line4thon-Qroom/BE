@@ -30,7 +30,7 @@ public record QaPostResponse(
                 new UserDto(qaPost.getWriter()),
                 qaPost.getTitle(),
                 qaPost.getContent(),
-                qaPost.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) // "created_at" 형식
+                qaPost.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
     }
 }
