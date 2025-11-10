@@ -1,5 +1,6 @@
 package com.likelion.server.domain.quiz.repository;
 
+import com.likelion.server.domain.quiz.entity.QuizResult;
 import com.likelion.server.domain.quiz.entity.QuizUserAnswer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,5 +16,7 @@ public interface QuizUserAnswerRepository extends JpaRepository<QuizUserAnswer, 
     List<QuizUserAnswer> findAllByQuizResultId(@Param("quizResultId") Long quizResultId);
 
     boolean existsByQuizResultIdAndQuestionId(Long quizResultId, Long questionId);
+
+    List<QuizUserAnswer> findAllByQuizResultAndIsCorrect(QuizResult quizResult, Boolean isCorrect);
 
 }
