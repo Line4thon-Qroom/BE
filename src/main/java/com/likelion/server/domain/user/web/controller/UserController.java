@@ -48,4 +48,13 @@ public class UserController {
         UpdateWrongNoteResponse data = userService.updateWrongNote(userId, questionId, request);
         return SuccessResponse.ok(data);
     }
+
+    @PatchMapping("/mypage/profile")
+    public SuccessResponse<UserResponse> updateProfile(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @Valid @RequestBody UpdateProfileRequest request
+    ) {
+        UserResponse data = userService.updateProfile(userId, request);
+        return SuccessResponse.ok(data);
+    }
 }
