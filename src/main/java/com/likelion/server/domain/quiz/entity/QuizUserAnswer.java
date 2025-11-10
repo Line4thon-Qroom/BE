@@ -29,4 +29,7 @@ public class QuizUserAnswer {
 
     private String userAnswer;
     private Boolean isCorrect;
+
+    @Column(columnDefinition = "TEXT")
+    private String memo;
 }
