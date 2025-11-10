@@ -13,6 +13,7 @@ import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizResultRepository;
 import com.likelion.server.domain.quiz.exception.QuizResultNotFoundException;
+import com.likelion.server.domain.quiz.exception.QuizUserAnswerNotFoundException;
 import com.likelion.server.domain.quiz.repository.QuizUserAnswerRepository;
 import com.likelion.server.domain.user.entity.User;
 import com.likelion.server.domain.user.exception.UserNicknameDuplicatedException;
@@ -172,6 +173,7 @@ public class UserServiceImpl implements UserService {
         return new MyPageResponse(user, results);
     }
 
+    // 오답노트 조회
     @Transactional(readOnly = true)
     @Override
     public WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId) {
@@ -199,6 +201,27 @@ public class UserServiceImpl implements UserService {
 
         // return
         return new WrongNoteDetailResponse(quizResult, wrongQuestionDtos);
+    }
+
+    // 오답노트 작성/수정
+    @Transactional
+    @Override
+    public UpdateWrongNoteResponse updateWrongNote(Long userId, Long questionId, UpdateWrongNoteRequest request) {
+
+        Long quizResultId = request.quizResultId();
+
+        QuizUserAnswer userAnswer = quizUserAnswerRepository.findByQuizResultIdAndQuestionId(quizResultId, questionId)
+                .orElseThrow(QuizUserAnswerNotFoundException::new);
+
+        if (!userAnswer.getUser().getId().equals(userId)) {
+            throw new UserNotFoundException();
+        }
+
+        userAnswer.updateReview(
+                request.memo()
+        );
+
+        return new UpdateWrongNoteResponse(userAnswer);
     }
 
     // progress 계산 메서드

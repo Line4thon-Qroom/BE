@@ -11,5 +11,7 @@ public interface UserService {
 
     MyPageResponse getMyPage(Long userId); // 마이페이지
 
-    WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId); // 오답노트
+    WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId); // 오답노트 조회
+
+    UpdateWrongNoteResponse updateWrongNote(Long userId, Long questionId, UpdateWrongNoteRequest request); // 오답노트 작성/수정
 }
