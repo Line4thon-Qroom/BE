@@ -1,15 +1,28 @@
 package com.likelion.server.domain.user.service;
 
+import com.likelion.server.domain.group.entity.Group;
+import com.likelion.server.domain.group.entity.Member;
+import com.likelion.server.domain.group.repository.GroupMemberRepository;
+import com.likelion.server.domain.qa.entity.QaBoard;
+import com.likelion.server.domain.qa.repository.QaBoardRepository;
+import com.likelion.server.domain.quiz.entity.Quiz;
+import com.likelion.server.domain.quiz.entity.QuizResult;
+import com.likelion.server.domain.quiz.repository.QuizRepository;
+import com.likelion.server.domain.quiz.repository.QuizResultRepository;
 import com.likelion.server.domain.user.entity.User;
+import com.likelion.server.domain.user.exception.UserNicknameDuplicatedException;
+import com.likelion.server.domain.user.exception.UserPasswordMismatchException;
+import com.likelion.server.domain.user.exception.UserNotFoundException;
 import com.likelion.server.domain.user.repository.UserRepository;
 import com.likelion.server.domain.user.web.dto.*;
 import com.likelion.server.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 회원가입 / 로그인 비즈니스 로직
@@ -22,17 +35,22 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    //1. 회원가입
+    private final GroupMemberRepository memberRepository;
+    private final QuizRepository quizRepository;
+    private final QaBoardRepository qaBoardRepository;
+    private final QuizResultRepository quizResultRepository;
+
+    // 회원가입
     @Override
     public UserResponse signup(SignupRequest request) {
         // 중복 닉네임 검사
         if (userRepository.existsByNickname(request.getNickname())) {
-            throw new IllegalArgumentException("이미 존재하는 닉네임입니다.");
+            throw new UserNicknameDuplicatedException();
         }
 
         // 비밀번호 일치 검사
         if (!request.getPassword().equals(request.getPasswordCheck())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            throw new UserPasswordMismatchException();
         }
 
         // 유저 생성 및 저장
@@ -47,14 +65,14 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    //2. 로그인
+    // 로그인
     @Override
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByNickname(request.getNickname())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 닉네임입니다."));
+                .orElseThrow(UserNotFoundException::new);
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            throw new UserPasswordMismatchException();
         }
 
         // Access / Refresh Token 생성
@@ -72,5 +90,78 @@ public class UserServiceImpl implements UserService {
                 refreshToken,
                 new UserResponse(user.getId(), user.getNickname())
         );
+    }
+
+    // 홈화면 조회
+    @Transactional(readOnly = true)
+    @Override
+    public HomeResponse getHome(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        // 사용자가 속한 모든 그룹 조회
+        List<Group> userGroups = memberRepository.findAllByUser(user)
+                .stream()
+                .map(Member::getGroup)
+                .toList();
+
+        // [groups] DTO 목록 생성 (Quiz Room)
+        List<HomeResponse.GroupDto> groupDtos = userGroups.stream()
+                .map(group -> {
+                    Integer memberCount = memberRepository.countByGroup(group);
+                    return new HomeResponse.GroupDto(group, memberCount);
+                })
+                .collect(Collectors.toList());
+
+        // [exam_schedule] DTO 목록 생성 (Exam Date)
+        List<HomeResponse.ExamScheduleDto> scheduleDtos = userGroups.stream()
+                .filter(group -> group.getExamDate() != null && !group.getExamDate().isEmpty())
+                .map(HomeResponse.ExamScheduleDto::new)
+                .collect(Collectors.toList());
+
+        // [qa_board] DTO 목록 생성 (Q&A 게시판)
+        List<HomeResponse.QaBoardDto> qaBoardDtos = new ArrayList<>();
+
+        // 사용자가 속한 그룹의 모든 퀴즈를 조회
+        List<Quiz> allQuizzes = userGroups.stream()
+                .flatMap(group -> quizRepository.findAllByGroup(group).stream())
+                .toList();
+
+        // 각 퀴즈를 순회하며 QA게시판과진행률(Progress) 찾기
+        for (Quiz quiz : allQuizzes) {
+            Optional<QaBoard> qaBoardOpt = qaBoardRepository.findByQuizId(quiz.getId());
+
+            if (qaBoardOpt.isPresent()) {
+                QaBoard qaBoard = qaBoardOpt.get();
+
+                // 퀴즈에 대한 점수(QuizResult) 조회
+                Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
+
+                String progress = calculateProgress(user, quiz);
+
+                qaBoardDtos.add(new HomeResponse.QaBoardDto(qaBoard, progress));
+            }
+        }
+
+        // return
+        return new HomeResponse(groupDtos, qaBoardDtos, scheduleDtos);
+    }
+
+    // progress 계산 메서드
+    private String calculateProgress(User user, Quiz quiz) {
+        // 퀴즈에 대한 점수(QuizResult) 조회
+        Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
+
+        int total = (quiz.getTotalQuestions() != null) ? quiz.getTotalQuestions() : 0;
+
+        if (resultOpt.isPresent() && total > 0) {
+            QuizResult result = resultOpt.get();
+            int correct = result.getCorrectCount();
+            long percent = Math.round((double) correct * 100 / total);
+            return String.format("%d/%d (%d%%)", correct, total, percent); // "19/20 (95%)"
+        } else {
+            // 퀴즈를 안 풀었거나, totalQuestions가 0 또는 null인 경우
+            return String.format("0/%d (0%%)", total);
+        }
     }
 }
