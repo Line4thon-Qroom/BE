@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface QuizUserAnswerRepository extends JpaRepository<QuizUserAnswer, Long> {
@@ -19,4 +20,5 @@ public interface QuizUserAnswerRepository extends JpaRepository<QuizUserAnswer, 
 
     List<QuizUserAnswer> findAllByQuizResultAndIsCorrect(QuizResult quizResult, Boolean isCorrect);
 
+    Optional<QuizUserAnswer> findByQuizResultIdAndQuestionId(Long quizResultId, Long questionId);
 }
