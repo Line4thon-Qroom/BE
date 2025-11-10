@@ -74,7 +74,7 @@ public class QuizDetailResponse {
                     .build();
         }
 
-        private static String convertTypeToKorean(Type type) {
+        static String convertTypeToKorean(Type type) {
             return switch (type) {
                 case OX -> "OX";
                 case MULTIPLE_CHOICE -> "객관식";
