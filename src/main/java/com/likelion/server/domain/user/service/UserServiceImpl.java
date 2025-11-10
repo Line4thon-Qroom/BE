@@ -20,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.likelion.server.domain.user.web.dto.MyPageResponse;
+import java.util.List;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -147,6 +149,21 @@ public class UserServiceImpl implements UserService {
         return new HomeResponse(groupDtos, qaBoardDtos, scheduleDtos);
     }
 
+    // 마이페이지 조회
+    @Transactional(readOnly = true)
+    @Override
+    public MyPageResponse getMyPage(Long userId) {
+        // 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        // 사용자가 푼 모든 퀴즈 결과 조회
+        List<QuizResult> results = quizResultRepository.findAllByUser(user);
+
+        // return
+        return new MyPageResponse(user, results);
+    }
+
     // progress 계산 메서드
     private String calculateProgress(User user, Quiz quiz) {
         // 퀴즈에 대한 점수(QuizResult) 조회
@@ -158,7 +175,7 @@ public class UserServiceImpl implements UserService {
             QuizResult result = resultOpt.get();
             int correct = result.getCorrectCount();
             long percent = Math.round((double) correct * 100 / total);
-            return String.format("%d/%d (%d%%)", correct, total, percent); // "19/20 (95%)"
+            return String.format("%d/%d (%d%%)", correct, total, percent);
         } else {
             // 퀴즈를 안 풀었거나, totalQuestions가 0 또는 null인 경우
             return String.format("0/%d (0%%)", total);
