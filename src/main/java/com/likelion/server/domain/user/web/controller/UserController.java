@@ -1,15 +1,12 @@
 package com.likelion.server.domain.user.web.controller;
 
 import com.likelion.server.domain.user.service.UserService;
-import com.likelion.server.domain.user.web.dto.HomeResponse;
-import com.likelion.server.domain.user.web.dto.MyPageResponse;
-import com.likelion.server.domain.user.web.dto.WrongNoteDetailResponse;
+import com.likelion.server.domain.user.web.dto.*;
 import com.likelion.server.global.response.SuccessResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -39,6 +36,16 @@ public class UserController {
             @PathVariable("quiz_id") Long quizId
     ) {
         WrongNoteDetailResponse data = userService.getWrongNoteDetail(userId, quizId);
+        return SuccessResponse.ok(data);
+    }
+
+    @PatchMapping("/mypage/wrong-note/{question_id}/review") //
+    public SuccessResponse<UpdateWrongNoteResponse> updateWrongNote(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("question_id") Long questionId,
+            @Valid @RequestBody UpdateWrongNoteRequest request
+    ) {
+        UpdateWrongNoteResponse data = userService.updateWrongNote(userId, questionId, request);
         return SuccessResponse.ok(data);
     }
 }
