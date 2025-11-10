@@ -10,4 +10,6 @@ public interface UserService {
     HomeResponse getHome(Long userId); // 홈화면
 
     MyPageResponse getMyPage(Long userId); // 마이페이지
+
+    WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId); // 오답노트
 }
