@@ -3,10 +3,12 @@ package com.likelion.server.domain.user.web.controller;
 import com.likelion.server.domain.user.service.UserService;
 import com.likelion.server.domain.user.web.dto.HomeResponse;
 import com.likelion.server.domain.user.web.dto.MyPageResponse;
+import com.likelion.server.domain.user.web.dto.WrongNoteDetailResponse;
 import com.likelion.server.global.response.SuccessResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,6 +30,15 @@ public class UserController {
             @AuthenticationPrincipal(expression = "id") Long userId
     ) {
         MyPageResponse data = userService.getMyPage(userId);
+        return SuccessResponse.ok(data);
+    }
+
+    @GetMapping("/mypage/wrong-note/{quiz_id}")
+    public SuccessResponse<WrongNoteDetailResponse> getWrongNoteDetail(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("quiz_id") Long quizId
+    ) {
+        WrongNoteDetailResponse data = userService.getWrongNoteDetail(userId, quizId);
         return SuccessResponse.ok(data);
     }
 }

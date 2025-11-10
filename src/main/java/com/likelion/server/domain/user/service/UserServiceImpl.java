@@ -6,9 +6,14 @@ import com.likelion.server.domain.group.repository.GroupMemberRepository;
 import com.likelion.server.domain.qa.entity.QaBoard;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
 import com.likelion.server.domain.quiz.entity.Quiz;
+import com.likelion.server.domain.quiz.entity.QuizOption;
 import com.likelion.server.domain.quiz.entity.QuizResult;
+import com.likelion.server.domain.quiz.entity.QuizUserAnswer;
+import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizResultRepository;
+import com.likelion.server.domain.quiz.exception.QuizResultNotFoundException;
+import com.likelion.server.domain.quiz.repository.QuizUserAnswerRepository;
 import com.likelion.server.domain.user.entity.User;
 import com.likelion.server.domain.user.exception.UserNicknameDuplicatedException;
 import com.likelion.server.domain.user.exception.UserPasswordMismatchException;
@@ -41,6 +46,9 @@ public class UserServiceImpl implements UserService {
     private final QuizRepository quizRepository;
     private final QaBoardRepository qaBoardRepository;
     private final QuizResultRepository quizResultRepository;
+
+    private final QuizUserAnswerRepository quizUserAnswerRepository;
+    private final QuizOptionRepository quizOptionRepository;
 
     // 회원가입
     @Override
@@ -162,6 +170,35 @@ public class UserServiceImpl implements UserService {
 
         // return
         return new MyPageResponse(user, results);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        // 퀴즈 결과(요약) 조회
+        QuizResult quizResult = quizResultRepository.findByUserAndQuizId(user, quizId)
+                .orElseThrow(QuizResultNotFoundException::new);
+
+        // 틀린 문제 목록(QuizUserAnswer) 조회
+        List<QuizUserAnswer> wrongAnswers = quizUserAnswerRepository.findAllByQuizResultAndIsCorrect(quizResult, false);
+
+        // 틀린 문제 목록 DTO로 변환
+        List<WrongNoteDetailResponse.WrongQuestionDto> wrongQuestionDtos = wrongAnswers.stream()
+                .map(answer -> {
+                    List<QuizOption> options = Collections.emptyList();
+
+                    if (answer.getQuestion().getType() == com.likelion.server.domain.quiz.entity.enums.Type.MULTIPLE_CHOICE) {
+                        options = quizOptionRepository.findAllByQuestion(answer.getQuestion());
+                    }
+                    return WrongNoteDetailResponse.WrongQuestionDto.from(answer, options);
+                })
+                .collect(Collectors.toList());
+
+        // return
+        return new WrongNoteDetailResponse(quizResult, wrongQuestionDtos);
     }
 
     // progress 계산 메서드
