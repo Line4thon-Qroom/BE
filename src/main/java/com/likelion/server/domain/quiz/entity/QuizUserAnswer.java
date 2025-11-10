@@ -3,6 +3,9 @@ package com.likelion.server.domain.quiz.entity;
 import com.likelion.server.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -28,8 +31,16 @@ public class QuizUserAnswer {
     private User user;
 
     private String userAnswer;
+
     private Boolean isCorrect;
 
     @Column(columnDefinition = "TEXT")
     private String memo;
+
+    @UpdateTimestamp
+    private LocalDateTime reviewUpdatedAt;
+
+    public void updateReview(String memo) {
+        this.memo = memo;
+    }
 }
