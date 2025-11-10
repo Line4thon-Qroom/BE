@@ -27,6 +27,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.likelion.server.domain.user.web.dto.MyPageResponse;
+import org.springframework.util.StringUtils;
+
 import java.util.List;
 
 import java.util.*;
@@ -222,6 +224,36 @@ public class UserServiceImpl implements UserService {
         );
 
         return new UpdateWrongNoteResponse(userAnswer);
+    }
+
+    // 개인정보 변경
+    @Transactional
+    @Override
+    public UserResponse updateProfile(Long userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        // 닉네임 변경
+        String newNickname = request.nickname();
+        if (StringUtils.hasText(newNickname) && !newNickname.equals(user.getNickname())) {
+            // 새 닉네임이 중복인지 확인
+            if (userRepository.existsByNickname(newNickname)) {
+                throw new UserNicknameDuplicatedException();
+            }
+            user.updateNickname(newNickname);
+        }
+
+        // 비밀번호 변경
+        String newPassword = request.password();
+        if (StringUtils.hasText(newPassword)) {
+            // 비밀번호 확인란과 일치하는지 확인
+            if (!newPassword.equals(request.passwordCheck())) {
+                throw new UserPasswordMismatchException();
+            }
+            user.updatePassword(passwordEncoder.encode(newPassword));
+        }
+
+        return new UserResponse(user.getId(), user.getNickname());
     }
 
     // progress 계산 메서드

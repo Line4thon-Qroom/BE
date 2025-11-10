@@ -14,4 +14,6 @@ public interface UserService {
     WrongNoteDetailResponse getWrongNoteDetail(Long userId, Long quizId); // 오답노트 조회
 
     UpdateWrongNoteResponse updateWrongNote(Long userId, Long questionId, UpdateWrongNoteRequest request); // 오답노트 작성/수정
+
+    UserResponse updateProfile(Long userId, UpdateProfileRequest request); // 개인정보 변경
 }
