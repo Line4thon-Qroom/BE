@@ -31,4 +31,19 @@ public class QuizResult extends BaseEntity {
 
     private Integer score;
     private Integer correctCount;
+
+
+    // setter
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    public void setCorrectCount(int correctCount) {
+        this.correctCount = correctCount;
+    }
+
+    public void updateResult(int score, int correctCount) {
+        this.score = score;
+        this.correctCount = correctCount;
+    }
 }

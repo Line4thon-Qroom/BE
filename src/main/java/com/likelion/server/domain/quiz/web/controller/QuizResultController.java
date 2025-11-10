@@ -1,6 +1,7 @@
 package com.likelion.server.domain.quiz.web.controller;
 
 import com.likelion.server.domain.quiz.service.QuizResultService;
+import com.likelion.server.domain.quiz.web.dto.QuizResultDetailResponse;
 import com.likelion.server.domain.quiz.web.dto.QuizResultRequest;
 import com.likelion.server.global.response.SuccessResponse;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,15 @@ public class QuizResultController {
                 "message", "퀴즈 응시를 시작합니다.",
                 "quiz_result_id", result.getId()
         ));
+    }
+
+
+    @GetMapping("/result/{quiz_result_id}")
+    public SuccessResponse<QuizResultDetailResponse> getQuizResultDetail(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("quiz_result_id") Long quizResultId
+    ) {
+        QuizResultDetailResponse data = quizResultService.getQuizResultDetail(userId, quizResultId);
+        return SuccessResponse.ok(data);
     }
 }
