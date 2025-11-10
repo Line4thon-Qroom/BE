@@ -8,4 +8,6 @@ public interface UserService {
     LoginResponse login(LoginRequest request); // 로그인
 
     HomeResponse getHome(Long userId); // 홈화면
+
+    MyPageResponse getMyPage(Long userId); // 마이페이지
 }
