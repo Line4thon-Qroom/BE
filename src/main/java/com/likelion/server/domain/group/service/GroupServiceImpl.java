@@ -11,6 +11,7 @@ import com.likelion.server.domain.group.repository.StudyGroupRepository;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
 import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
 import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
+import com.likelion.server.domain.group.web.dto.GroupMainResponse;
 import com.likelion.server.domain.pdf.entity.Pdf;
 import com.likelion.server.domain.pdf.repository.PdfRepository;
 import com.likelion.server.domain.pdf.service.PdfService;
@@ -22,6 +23,8 @@ import com.likelion.server.domain.qa.repository.QaPostRepository;
 import com.likelion.server.domain.quiz.entity.Quiz;
 import com.likelion.server.domain.quiz.entity.QuizResult;
 import com.likelion.server.domain.quiz.repository.*;
+import com.likelion.server.domain.ranking.entity.GroupRanking;
+import com.likelion.server.domain.ranking.repository.GroupRankingRepository;
 import com.likelion.server.domain.user.entity.User;
 import com.likelion.server.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
@@ -33,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +46,6 @@ public class GroupServiceImpl implements GroupService {
     private final StudyGroupRepository studyGroupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final EntityManager em;
-
     private final UserRepository userRepository;
     private final PdfRepository pdfRepository;
     private final PdfService pdfService;
@@ -54,23 +57,19 @@ public class GroupServiceImpl implements GroupService {
     private final QaBoardRepository qaBoardRepository;
     private final QaPostRepository qaPostRepository;
     private final QaCommentRepository qaCommentRepository;
+    private final GroupRankingRepository groupRankingRepository;
 
     private static final char[] CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
     private static final SecureRandom RND = new SecureRandom();
 
+    // 그룹 생성
     @Override
     public CreateGroupResponse create(Long userId, CreateGroupRequest createGroupRequest) {
-
-        // examDate 파싱
         LocalDate examDate = null;
         if (createGroupRequest.examDate() != null && !createGroupRequest.examDate().isBlank()) {
-            examDate = LocalDate.parse(createGroupRequest.examDate()); // yyyy-MM-dd
+            examDate = LocalDate.parse(createGroupRequest.examDate());
         }
-
-        // GroupCode 생성
         String code = generateUniqueCode(6);
-
-        // Group 생성
         Group group = Group.builder()
                 .name(createGroupRequest.name())
                 .examDate(String.valueOf(examDate))
@@ -78,16 +77,12 @@ public class GroupServiceImpl implements GroupService {
                 .groupCode(code)
                 .build();
         Group saveGroup = studyGroupRepository.save(group);
-
-        // Group leader 등록
         Member leader = new Member(
                 em.getReference(Group.class, saveGroup.getId()),
                 em.getReference(User.class, userId),
                 Role.LEADER
         );
         groupMemberRepository.save(leader);
-
-        // return
         return new CreateGroupResponse(
                 saveGroup.getId(),
                 saveGroup.getName(),
@@ -97,27 +92,22 @@ public class GroupServiceImpl implements GroupService {
         );
     }
 
+    // 그룹 입장
     @Override
     public GroupJoinResponse joinByCode(Long userId, String groupCode) {
-
         Group group = studyGroupRepository.findByGroupCode(groupCode);
         if (group == null) {
             throw new GroupNotFoundException();
         }
-
-        // 중복 가입 방지
         if (groupMemberRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
             throw new AlreadyGroupMemberException();
         }
-
-        // Member 엔티티 생성/저장
         Member member = new Member(
                 group,
                 em.getReference(User.class, userId),
                 Role.MEMBER
         );
         groupMemberRepository.save(member);
-
         return new GroupJoinResponse(group.getId());
     }
 
@@ -128,17 +118,12 @@ public class GroupServiceImpl implements GroupService {
                 .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
         Group group = studyGroupRepository.findById(groupId)
                 .orElseThrow(GroupNotFoundException::new);
-
         Member member = groupMemberRepository.findByUserAndGroup(user, group)
-                .orElseThrow(() -> new GroupNotFoundException()); // 이 그룹 멤버가 아님
-
-        // 방장은 퇴장 불가
+                .orElseThrow(() -> new GroupNotFoundException());
         if (member.getRole() == Role.LEADER) {
             throw new GroupPermissionDeniedException();
         }
-
         deletePersonalQuizActivity(user, group);
-
         groupMemberRepository.delete(member);
     }
 
@@ -149,18 +134,65 @@ public class GroupServiceImpl implements GroupService {
                 .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
         Group group = studyGroupRepository.findById(groupId)
                 .orElseThrow(GroupNotFoundException::new);
-
         Member member = groupMemberRepository.findByUserAndGroup(user, group)
                 .orElseThrow(() -> new GroupNotFoundException());
-
-        // 멤버는 삭제 불가
         if (member.getRole() == Role.MEMBER) {
             throw new GroupPermissionDeniedException();
         }
-
         deleteAllGroupData(group);
-
         studyGroupRepository.delete(group);
+    }
+
+    // 스터디룸 메인화면 조회
+    @Override
+    @Transactional(readOnly = true)
+    public GroupMainResponse getGroupMain(Long userId, Long groupId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
+        Group group = studyGroupRepository.findById(groupId)
+                .orElseThrow(GroupNotFoundException::new);
+
+        // Group 정보 (멤버 목록, 내 역할 포함)
+        Member myMemberInfo = groupMemberRepository.findByUserAndGroup(user, group)
+                .orElseThrow(() -> new GroupPermissionDeniedException());
+        String myRole = myMemberInfo.getRole().toString();
+        List<Member> allMembers = groupMemberRepository.findAllByGroup(group);
+        GroupMainResponse.GroupDto groupDto = new GroupMainResponse.GroupDto(group, myRole, allMembers);
+
+        // PDF 목록
+        List<Pdf> pdfs = pdfRepository.findAllByGroup(group);
+        List<GroupMainResponse.PdfDto> pdfDtos = pdfs.stream()
+                .map(GroupMainResponse.PdfDto::new)
+                .toList();
+
+        // 퀴즈 목록 (참여자 수)
+        List<Quiz> quizzes = quizRepository.findAllByGroup(group);
+        List<GroupMainResponse.QuizDto> quizDtos = quizzes.stream()
+                .map(quiz -> {
+                    Long participantsCount = quizResultRepository.countDistinctUserByQuiz(quiz);
+                    return new GroupMainResponse.QuizDto(quiz, participantsCount);
+                })
+                .toList();
+
+        // QA 게시판 목록 (내 진행률)
+        List<QaBoard> qaBoards = qaBoardRepository.findAllByGroup(group);
+        List<GroupMainResponse.QaBoardDto> qaBoardDtos = qaBoards.stream()
+                .map(board -> {
+                    String progress = calculateProgress(user, board.getQuiz());
+                    return new GroupMainResponse.QaBoardDto(board, progress);
+                })
+                .toList();
+
+        // 랭킹 (내 등수 + 전체 목록)
+        Integer myRank = groupRankingRepository.findByGroupAndUser(group, user)
+                .map(GroupRanking::getRankPosition)
+                .orElse(null);
+        List<GroupRanking> allRanks = groupRankingRepository.findAllByGroupOrderByTotalScoreDesc(group);
+
+        GroupMainResponse.RankingDto rankingDto = GroupMainResponse.RankingDto.from(myRank, allRanks);
+
+        // return
+        return new GroupMainResponse(groupDto, pdfDtos, quizDtos, qaBoardDtos, rankingDto);
     }
 
     private String generateUniqueCode(int length) {
@@ -181,75 +213,67 @@ public class GroupServiceImpl implements GroupService {
         return sb.toString();
     }
 
-    // 그룹 퇴장 - 특정 유저의 개인 활동 기록만 삭제
     private void deletePersonalQuizActivity(User user, Group group) {
-        // 이 그룹의 모든 퀴즈 조회
         List<Quiz> quizzesInGroup = quizRepository.findAllByGroup(group);
-        if (quizzesInGroup.isEmpty()) return; // 퀴즈가 없으면 활동 기록도 없음
-
-        // 이 퀴즈들에 대한 나의 모든 응시 결과(QuizResult) 조회
+        if (quizzesInGroup.isEmpty()) return;
         List<QuizResult> myResults = quizResultRepository.findAllByUserAndQuizIn(user, quizzesInGroup);
         if (!myResults.isEmpty()) {
-            // 나의 모든 답안(QuizUserAnswer) 삭제
             quizUserAnswerRepository.deleteAllByQuizResultIn(myResults);
-            // 나의 모든 퀴즈 결과(QuizResult) 삭제
             quizResultRepository.deleteAll(myResults);
         }
-
-        // 나의 랭킹 삭제
-        // groupRankingRepository.deleteByUserAndGroup(user, group);
+        // 랭킹 삭제
+        groupRankingRepository.deleteByUserAndGroup(user, group);
     }
 
-    // 그룹 삭제 - 그룹의 모든 데이터를 삭제
     private void deleteAllGroupData(Group group) {
-        // 그룹의 모든 퀴즈/게시판 조회
         List<Quiz> quizzesInGroup = quizRepository.findAllByGroup(group);
         List<QaBoard> boardsInGroup = qaBoardRepository.findAllByGroup(group);
 
-        if (!quizzesInGroup.isEmpty()) {
-            // 모든 퀴즈 결과(QuizResult) 조회
-            List<QuizResult> allResults = quizResultRepository.findAllByQuizIn(quizzesInGroup);
-            if (!allResults.isEmpty()) {
-                // 모든 답안(QuizUserAnswer) 삭제
-                quizUserAnswerRepository.deleteAllByQuizResultIn(allResults);
-                // 모든 퀴즈 결과(QuizResult) 삭제
-                quizResultRepository.deleteAll(allResults);
-            }
-            // 모든 퀴즈 문항/보기 삭제
-            quizzesInGroup.forEach(quiz -> {
-                quizQuestionRepository.findAllByQuiz(quiz).forEach(question -> {
-                    quizOptionRepository.deleteAllByQuestion(question);
-                });
-                quizQuestionRepository.deleteAllByQuiz(quiz);
-            });
-            // 모든 퀴즈(Quiz) 삭제
-            quizRepository.deleteAll(quizzesInGroup);
-        }
-
+        // QA 데이터 먼저 삭제
         if (!boardsInGroup.isEmpty()) {
-            // 모든 게시글(QaPost) 조회
             List<QaPost> allPosts = qaPostRepository.findAllByBoardIn(boardsInGroup);
             if (!allPosts.isEmpty()) {
-                // 모든 댓글(QaComment) 삭제
                 qaCommentRepository.deleteAllByPostIn(allPosts);
-                // 모든 게시글(QaPost) 삭제
                 qaPostRepository.deleteAll(allPosts);
             }
-            // 모든 QA 게시판(QaBoard) 삭제
             qaBoardRepository.deleteAll(boardsInGroup);
         }
 
-        // 그룹의 모든 PDF 엔티티를 조회
+        // 퀴즈 데이터 삭제
+        if (!quizzesInGroup.isEmpty()) {
+            List<QuizResult> allResults = quizResultRepository.findAllByQuizIn(quizzesInGroup);
+            if (!allResults.isEmpty()) {
+                quizUserAnswerRepository.deleteAllByQuizResultIn(allResults);
+                quizResultRepository.deleteAll(allResults);
+            }
+            quizzesInGroup.forEach(quiz -> {
+                quizQuestionRepository.findAllByQuiz(quiz).forEach(quizOptionRepository::deleteAllByQuestion);
+                quizQuestionRepository.deleteAllByQuiz(quiz);
+            });
+            quizRepository.deleteAll(quizzesInGroup);
+        }
+
+        // PDF 데이터 삭제 (S3 포함)
         List<Pdf> pdfsInGroup = pdfRepository.findAllByGroupId(group.getId());
-        // S3와 DB에서 모두 삭제
         for (Pdf pdf : pdfsInGroup) {
             pdfService.delete(pdf.getId());
         }
 
-        // 모든 랭킹(GroupRanking) 삭제
-        // groupRankingRepository.deleteAllByGroup(group);
-
-        // 모든 멤버(Member) 삭제
+        // 랭킹 및 멤버 삭제
+        groupRankingRepository.deleteAllByGroup(group);
         groupMemberRepository.deleteAll(groupMemberRepository.findAllByGroup(group));
+    }
+
+    private String calculateProgress(User user, Quiz quiz) {
+        Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
+        int total = (quiz.getTotalQuestions() != null) ? quiz.getTotalQuestions() : 0;
+        if (resultOpt.isPresent() && total > 0) {
+            QuizResult result = resultOpt.get();
+            int correct = result.getCorrectCount();
+            long percent = Math.round((double) correct * 100 / total);
+            return String.format("%d/%d (%d%%)", correct, total, percent);
+        } else {
+            return String.format("0/%d (0%%)", total);
+        }
     }
 }

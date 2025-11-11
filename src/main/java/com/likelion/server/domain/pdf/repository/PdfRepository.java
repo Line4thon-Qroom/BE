@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface PdfRepository extends JpaRepository<Pdf, Long> {
     List<Pdf> findAllByGroupId(Long groupId);
+    List<Pdf> findAllByGroup(Group group);
 }
