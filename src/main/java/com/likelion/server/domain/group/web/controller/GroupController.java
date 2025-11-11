@@ -9,10 +9,7 @@ import com.likelion.server.global.response.SuccessResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -39,5 +36,15 @@ public class GroupController {
     ) {
         GroupJoinResponse data = groupService.joinByCode(userId, groupJoinRequest.groupCode());
         return SuccessResponse.ok(data);
+    }
+
+    // 그룹 퇴장(MEMBER)
+    @DeleteMapping("/group/{group_id}/leave")
+    public SuccessResponse<Void> leaveGroup(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("group_id") Long groupId
+    ) {
+        groupService.leaveGroup(userId, groupId);
+        return SuccessResponse.ok(null);
     }
 }
