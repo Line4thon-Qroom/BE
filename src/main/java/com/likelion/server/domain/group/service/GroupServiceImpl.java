@@ -4,21 +4,33 @@ import com.likelion.server.domain.group.entity.Group;
 import com.likelion.server.domain.group.entity.Member;
 import com.likelion.server.domain.group.entity.enums.Role;
 import com.likelion.server.domain.group.exception.AlreadyGroupMemberException;
-import com.likelion.server.domain.group.exception.GroupErrorCode;
 import com.likelion.server.domain.group.exception.GroupNotFoundException;
+import com.likelion.server.domain.group.exception.GroupPermissionDeniedException;
 import com.likelion.server.domain.group.repository.GroupMemberRepository;
 import com.likelion.server.domain.group.repository.StudyGroupRepository;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
 import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
 import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
+import com.likelion.server.domain.pdf.repository.PdfRepository;
+import com.likelion.server.domain.qa.entity.QaBoard;
+import com.likelion.server.domain.qa.entity.QaPost;
+import com.likelion.server.domain.qa.repository.QaBoardRepository;
+import com.likelion.server.domain.qa.repository.QaCommentRepository;
+import com.likelion.server.domain.qa.repository.QaPostRepository;
+import com.likelion.server.domain.quiz.entity.Quiz;
+import com.likelion.server.domain.quiz.entity.QuizResult;
+import com.likelion.server.domain.quiz.repository.*;
 import com.likelion.server.domain.user.entity.User;
+import com.likelion.server.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +40,17 @@ public class GroupServiceImpl implements GroupService {
     private final StudyGroupRepository studyGroupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final EntityManager em;
+
+    private final UserRepository userRepository;
+    private final PdfRepository pdfRepository;
+    private final QuizRepository quizRepository;
+    private final QuizQuestionRepository quizQuestionRepository;
+    private final QuizOptionRepository quizOptionRepository;
+    private final QuizResultRepository quizResultRepository;
+    private final QuizUserAnswerRepository quizUserAnswerRepository;
+    private final QaBoardRepository qaBoardRepository;
+    private final QaPostRepository qaPostRepository;
+    private final QaCommentRepository qaCommentRepository;
 
     private static final char[] CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
     private static final SecureRandom RND = new SecureRandom();
@@ -95,6 +118,27 @@ public class GroupServiceImpl implements GroupService {
         return new GroupJoinResponse(group.getId());
     }
 
+    // 퇴장하기(MEMBER)
+    @Override
+    public void leaveGroup(Long userId, Long groupId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
+        Group group = studyGroupRepository.findById(groupId)
+                .orElseThrow(GroupNotFoundException::new);
+
+        Member member = groupMemberRepository.findByUserAndGroup(user, group)
+                .orElseThrow(() -> new GroupNotFoundException()); // 이 그룹 멤버가 아님
+
+        // 방장은 퇴장 불가
+        if (member.getRole() == Role.LEADER) {
+            throw new GroupPermissionDeniedException();
+        }
+
+        deletePersonalQuizActivity(user, group);
+
+        groupMemberRepository.delete(member);
+    }
+
     private String generateUniqueCode(int length) {
         String code;
         int attempts = 0;
@@ -111,5 +155,23 @@ public class GroupServiceImpl implements GroupService {
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) sb.append(CODE_CHARS[RND.nextInt(CODE_CHARS.length)]);
         return sb.toString();
+    }
+
+    private void deletePersonalQuizActivity(User user, Group group) {
+        // 이 그룹의 모든 퀴즈 조회
+        List<Quiz> quizzesInGroup = quizRepository.findAllByGroup(group);
+        if (quizzesInGroup.isEmpty()) return; // 퀴즈가 없으면 활동 기록도 없음
+
+        // 이 퀴즈들에 대한 나의 모든 응시 결과(QuizResult) 조회
+        List<QuizResult> myResults = quizResultRepository.findAllByUserAndQuizIn(user, quizzesInGroup);
+        if (!myResults.isEmpty()) {
+            // 나의 모든 답안(QuizUserAnswer) 삭제
+            quizUserAnswerRepository.deleteAllByQuizResultIn(myResults);
+            // 나의 모든 퀴즈 결과(QuizResult) 삭제
+            quizResultRepository.deleteAll(myResults);
+        }
+
+        // 나의 랭킹 삭제
+        // groupRankingRepository.deleteByUserAndGroup(user, group);
     }
 }

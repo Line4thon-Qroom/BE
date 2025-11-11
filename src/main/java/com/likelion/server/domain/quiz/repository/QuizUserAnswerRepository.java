@@ -21,4 +21,6 @@ public interface QuizUserAnswerRepository extends JpaRepository<QuizUserAnswer, 
     List<QuizUserAnswer> findAllByQuizResultAndIsCorrect(QuizResult quizResult, Boolean isCorrect);
 
     Optional<QuizUserAnswer> findByQuizResultIdAndQuestionId(Long quizResultId, Long questionId);
+
+    void deleteAllByQuizResultIn(List<QuizResult> quizResults);
 }
