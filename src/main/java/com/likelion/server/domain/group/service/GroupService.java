@@ -8,4 +8,5 @@ public interface GroupService {
     CreateGroupResponse create(Long userId, CreateGroupRequest req);
     GroupJoinResponse joinByCode(Long userId, String groupCode);
     void leaveGroup(Long userId, Long groupId);
+    void deleteGroup(Long userId, Long groupId);
 }

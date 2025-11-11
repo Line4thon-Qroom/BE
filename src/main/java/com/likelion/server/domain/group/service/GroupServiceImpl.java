@@ -11,7 +11,9 @@ import com.likelion.server.domain.group.repository.StudyGroupRepository;
 import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
 import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
 import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
+import com.likelion.server.domain.pdf.entity.Pdf;
 import com.likelion.server.domain.pdf.repository.PdfRepository;
+import com.likelion.server.domain.pdf.service.PdfService;
 import com.likelion.server.domain.qa.entity.QaBoard;
 import com.likelion.server.domain.qa.entity.QaPost;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
@@ -43,6 +45,7 @@ public class GroupServiceImpl implements GroupService {
 
     private final UserRepository userRepository;
     private final PdfRepository pdfRepository;
+    private final PdfService pdfService;
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final QuizOptionRepository quizOptionRepository;
@@ -118,7 +121,7 @@ public class GroupServiceImpl implements GroupService {
         return new GroupJoinResponse(group.getId());
     }
 
-    // 퇴장하기(MEMBER)
+    // 그룹 퇴장(MEMBER)
     @Override
     public void leaveGroup(Long userId, Long groupId) {
         User user = userRepository.findById(userId)
@@ -139,6 +142,27 @@ public class GroupServiceImpl implements GroupService {
         groupMemberRepository.delete(member);
     }
 
+    // 그룹삭제(LEADER)
+    @Override
+    public void deleteGroup(Long userId, Long groupId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
+        Group group = studyGroupRepository.findById(groupId)
+                .orElseThrow(GroupNotFoundException::new);
+
+        Member member = groupMemberRepository.findByUserAndGroup(user, group)
+                .orElseThrow(() -> new GroupNotFoundException());
+
+        // 멤버는 삭제 불가
+        if (member.getRole() == Role.MEMBER) {
+            throw new GroupPermissionDeniedException();
+        }
+
+        deleteAllGroupData(group);
+
+        studyGroupRepository.delete(group);
+    }
+
     private String generateUniqueCode(int length) {
         String code;
         int attempts = 0;
@@ -157,6 +181,7 @@ public class GroupServiceImpl implements GroupService {
         return sb.toString();
     }
 
+    // 그룹 퇴장 - 특정 유저의 개인 활동 기록만 삭제
     private void deletePersonalQuizActivity(User user, Group group) {
         // 이 그룹의 모든 퀴즈 조회
         List<Quiz> quizzesInGroup = quizRepository.findAllByGroup(group);
@@ -173,5 +198,58 @@ public class GroupServiceImpl implements GroupService {
 
         // 나의 랭킹 삭제
         // groupRankingRepository.deleteByUserAndGroup(user, group);
+    }
+
+    // 그룹 삭제 - 그룹의 모든 데이터를 삭제
+    private void deleteAllGroupData(Group group) {
+        // 그룹의 모든 퀴즈/게시판 조회
+        List<Quiz> quizzesInGroup = quizRepository.findAllByGroup(group);
+        List<QaBoard> boardsInGroup = qaBoardRepository.findAllByGroup(group);
+
+        if (!quizzesInGroup.isEmpty()) {
+            // 모든 퀴즈 결과(QuizResult) 조회
+            List<QuizResult> allResults = quizResultRepository.findAllByQuizIn(quizzesInGroup);
+            if (!allResults.isEmpty()) {
+                // 모든 답안(QuizUserAnswer) 삭제
+                quizUserAnswerRepository.deleteAllByQuizResultIn(allResults);
+                // 모든 퀴즈 결과(QuizResult) 삭제
+                quizResultRepository.deleteAll(allResults);
+            }
+            // 모든 퀴즈 문항/보기 삭제
+            quizzesInGroup.forEach(quiz -> {
+                quizQuestionRepository.findAllByQuiz(quiz).forEach(question -> {
+                    quizOptionRepository.deleteAllByQuestion(question);
+                });
+                quizQuestionRepository.deleteAllByQuiz(quiz);
+            });
+            // 모든 퀴즈(Quiz) 삭제
+            quizRepository.deleteAll(quizzesInGroup);
+        }
+
+        if (!boardsInGroup.isEmpty()) {
+            // 모든 게시글(QaPost) 조회
+            List<QaPost> allPosts = qaPostRepository.findAllByBoardIn(boardsInGroup);
+            if (!allPosts.isEmpty()) {
+                // 모든 댓글(QaComment) 삭제
+                qaCommentRepository.deleteAllByPostIn(allPosts);
+                // 모든 게시글(QaPost) 삭제
+                qaPostRepository.deleteAll(allPosts);
+            }
+            // 모든 QA 게시판(QaBoard) 삭제
+            qaBoardRepository.deleteAll(boardsInGroup);
+        }
+
+        // 그룹의 모든 PDF 엔티티를 조회
+        List<Pdf> pdfsInGroup = pdfRepository.findAllByGroupId(group.getId());
+        // S3와 DB에서 모두 삭제
+        for (Pdf pdf : pdfsInGroup) {
+            pdfService.delete(pdf.getId());
+        }
+
+        // 모든 랭킹(GroupRanking) 삭제
+        // groupRankingRepository.deleteAllByGroup(group);
+
+        // 모든 멤버(Member) 삭제
+        groupMemberRepository.deleteAll(groupMemberRepository.findAllByGroup(group));
     }
 }
