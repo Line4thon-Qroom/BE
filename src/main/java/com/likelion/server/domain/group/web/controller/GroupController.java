@@ -47,4 +47,14 @@ public class GroupController {
         groupService.leaveGroup(userId, groupId);
         return SuccessResponse.ok(null);
     }
+
+    // 그룹 삭제(LEADER)
+    @DeleteMapping("/group/{group_id}")
+    public SuccessResponse<Void> deleteGroup(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("group_id") Long groupId
+    ) {
+        groupService.deleteGroup(userId, groupId);
+        return SuccessResponse.ok(null);
+    }
 }
