@@ -32,10 +32,9 @@ public class PdfController {
     // PDF 삭제
     @DeleteMapping("/{pdf_id}")
     public SuccessResponse<PdfDeleteResponse> deletePdf(
-            @AuthenticationPrincipal(expression = "id") Long userId,
             @PathVariable("pdf_id") Long pdfId
     ) {
-        PdfDeleteResponse data = pdfServiceImpl.delete(pdfId, userId);
+        PdfDeleteResponse data = pdfServiceImpl.delete(pdfId);
         return SuccessResponse.ok(data);
     }
 
