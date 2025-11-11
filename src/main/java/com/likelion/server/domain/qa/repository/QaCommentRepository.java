@@ -12,4 +12,6 @@ public interface QaCommentRepository extends JpaRepository<QaComment, Long> {
 
     // 특정 게시글에 속한 모든 댓글 목록 조회
     List<QaComment> findAllByPost(QaPost post);
+
+    void deleteAllByPostIn(List<QaPost> allPosts);
 }

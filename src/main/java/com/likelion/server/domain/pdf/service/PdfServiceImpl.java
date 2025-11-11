@@ -101,14 +101,9 @@ public class PdfServiceImpl implements PdfService {
 
     // PDF 삭제
     @Override
-    public PdfDeleteResponse delete(Long pdfId, Long userId) {
+    public PdfDeleteResponse delete(Long pdfId) {
         Pdf pdf = pdfRepository.findById(pdfId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 PDF를 찾을 수 없습니다."));
-
-        // 업로더 본인 확인
-        if (!pdf.getUploader().getId().equals(userId)) {
-            throw new SecurityException("본인이 업로드한 파일만 삭제할 수 있습니다.");
-        }
 
         // S3 키 추출 (버킷 내 경로)
         String key = extractS3Key(pdf.getS3Url());
@@ -124,7 +119,7 @@ public class PdfServiceImpl implements PdfService {
         // DB에서 삭제
         pdfRepository.delete(pdf);
 
-        User uploader = em.find(User.class, userId);
+        User uploader = pdf.getUploader();
 
         return PdfDeleteResponse.builder()
                 .id(pdf.getId())

@@ -9,7 +9,7 @@ public interface PdfService {
 
     PdfUploadResponse upload(Long userId, Long groupId, MultipartFile file);
 
-    PdfDeleteResponse delete(Long pdfId, Long userId);
+    PdfDeleteResponse delete(Long pdfId);
 
     PdfGroupListResponse getPdfListByGroup(Long groupId);
 }
