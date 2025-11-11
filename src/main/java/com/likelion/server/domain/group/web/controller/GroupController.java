@@ -1,10 +1,7 @@
 package com.likelion.server.domain.group.web.controller;
 
 import com.likelion.server.domain.group.service.GroupService;
-import com.likelion.server.domain.group.web.dto.CreateGroupRequest;
-import com.likelion.server.domain.group.web.dto.CreateGroupResponse;
-import com.likelion.server.domain.group.web.dto.GroupJoinRequest;
-import com.likelion.server.domain.group.web.dto.GroupJoinResponse;
+import com.likelion.server.domain.group.web.dto.*;
 import com.likelion.server.global.response.SuccessResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,5 +53,15 @@ public class GroupController {
     ) {
         groupService.deleteGroup(userId, groupId);
         return SuccessResponse.ok(null);
+    }
+
+    // 그룹 홈화면 조회
+    @GetMapping("/group/{group_id}/main") // [cite: image_ae2c3e.png]
+    public SuccessResponse<GroupMainResponse> getGroupMain(
+            @AuthenticationPrincipal(expression = "id") Long userId,
+            @PathVariable("group_id") Long groupId
+    ) {
+        GroupMainResponse data = groupService.getGroupMain(userId, groupId);
+        return SuccessResponse.ok(data);
     }
 }
