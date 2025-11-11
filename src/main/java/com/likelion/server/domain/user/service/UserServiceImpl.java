@@ -2,6 +2,7 @@ package com.likelion.server.domain.user.service;
 
 import com.likelion.server.domain.group.entity.Group;
 import com.likelion.server.domain.group.entity.Member;
+import com.likelion.server.domain.group.entity.enums.Role;
 import com.likelion.server.domain.group.repository.GroupMemberRepository;
 import com.likelion.server.domain.qa.entity.QaBoard;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
@@ -112,30 +113,30 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        // 사용자가 속한 모든 그룹 조회
-        List<Group> userGroups = memberRepository.findAllByUser(user)
-                .stream()
-                .map(Member::getGroup)
+        List<Member> memberships = memberRepository.findAllByUser(user);
+
+        // 2. [groups] DTO 목록 생성 (Quiz Room)
+        List<HomeResponse.GroupDto> groupDtos = memberships.stream()
+                .map(member -> {
+                    Group group = member.getGroup();
+                    Role role = member.getRole();
+                    Integer memberCount = memberRepository.countByGroup(group);
+
+                    return new HomeResponse.GroupDto(group, memberCount, role);
+                })
                 .toList();
 
-        // [groups] DTO 목록 생성 (Quiz Room)
-        List<HomeResponse.GroupDto> groupDtos = userGroups.stream()
-                .map(group -> {
-                    Integer memberCount = memberRepository.countByGroup(group);
-                    return new HomeResponse.GroupDto(group, memberCount);
-                })
-                .collect(Collectors.toList());
-
-        // [exam_schedule] DTO 목록 생성 (Exam Date)
-        List<HomeResponse.ExamScheduleDto> scheduleDtos = userGroups.stream()
+        // 3. [exam_schedule] DTO 목록 생성 (Exam Date)
+        List<HomeResponse.ExamScheduleDto> scheduleDtos = memberships.stream()
+                .map(Member::getGroup)
                 .filter(group -> group.getExamDate() != null && !group.getExamDate().isEmpty())
                 .map(HomeResponse.ExamScheduleDto::new)
-                .collect(Collectors.toList());
+                .toList();
 
-        // [qa_board] DTO 목록 생성 (Q&A 게시판)
+        // 4. [qa_board] DTO 목록 생성 (Q&A 게시판)
         List<HomeResponse.QaBoardDto> qaBoardDtos = new ArrayList<>();
 
-        // 사용자가 속한 그룹의 모든 퀴즈를 조회
+        List<Group> userGroups = memberships.stream().map(Member::getGroup).toList();
         List<Quiz> allQuizzes = userGroups.stream()
                 .flatMap(group -> quizRepository.findAllByGroup(group).stream())
                 .toList();

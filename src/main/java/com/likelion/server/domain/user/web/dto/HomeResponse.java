@@ -2,6 +2,7 @@ package com.likelion.server.domain.user.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.likelion.server.domain.group.entity.Group;
+import com.likelion.server.domain.group.entity.enums.Role;
 import com.likelion.server.domain.qa.entity.QaBoard;
 
 import java.util.List;
@@ -16,14 +17,16 @@ public record HomeResponse(
             Long id,
             String name,
             @JsonProperty("exam_date") String examDate,
-            @JsonProperty("member_count") Integer memberCount
+            @JsonProperty("member_count") Integer memberCount,
+            @JsonProperty("role") String role
     ) {
-        public GroupDto(Group group, Integer memberCount) {
+        public GroupDto(Group group, Integer memberCount, Role role) {
             this(
                     group.getId(),
                     group.getName(),
                     group.getExamDate(),
-                    memberCount
+                    memberCount,
+                    role.toString()
             );
         }
     }
