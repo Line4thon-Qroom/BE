@@ -125,6 +125,7 @@ public class GroupServiceImpl implements GroupService {
         }
         deletePersonalQuizActivity(user, group);
         groupMemberRepository.delete(member);
+        recalculateRankPositions(group);
     }
 
     // 그룹삭제(LEADER)
@@ -274,6 +275,25 @@ public class GroupServiceImpl implements GroupService {
             return String.format("%d/%d (%d%%)", correct, total, percent);
         } else {
             return String.format("0/%d (0%%)", total);
+        }
+    }
+
+    private void recalculateRankPositions(Group group) {
+        List<GroupRanking> rankings = groupRankingRepository.findAllByGroupOrderByTotalScoreDesc(group);
+
+        int currentRank = 1;
+        int sameScoreCount = 0;
+        Integer previousScore = null;
+
+        for (GroupRanking rank : rankings) {
+            if (previousScore == null || !rank.getTotalScore().equals(previousScore)) {
+                currentRank += sameScoreCount;
+                sameScoreCount = 0;
+            }
+
+            rank.setRankPosition(currentRank);
+            sameScoreCount++;
+            previousScore = rank.getTotalScore();
         }
     }
 }

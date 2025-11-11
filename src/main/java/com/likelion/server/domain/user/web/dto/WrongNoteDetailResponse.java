@@ -46,6 +46,7 @@ public record WrongNoteDetailResponse(
     }
     // 틀린 문제 상세 DTO
     public record WrongQuestionDto(
+            @JsonProperty("quiz_question_id")
             Long id,
             String type,
             @JsonProperty("question_text") String questionText,
