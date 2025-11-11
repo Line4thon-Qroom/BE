@@ -57,6 +57,7 @@ public class QuizServiceImpl implements QuizService {
                 .questionTypes(String.join(",", request.question_types()))
                 .totalQuestions(request.total_questions())
                 .title(pdf.getFileName())
+                .group(pdf.getGroup())
                 .build();
     }
 
