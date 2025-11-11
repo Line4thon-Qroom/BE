@@ -11,4 +11,6 @@ import java.util.List;
 public interface QuizOptionRepository extends JpaRepository<QuizOption, Long> {
     // 질문 ID 기준 보기 조회
     List<QuizOption> findAllByQuestion(QuizQuestion question);
+
+    void deleteAllByQuestion(QuizQuestion question);
 }
