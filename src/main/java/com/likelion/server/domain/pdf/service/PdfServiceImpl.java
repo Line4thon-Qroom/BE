@@ -6,6 +6,7 @@ import com.likelion.server.domain.pdf.repository.PdfRepository;
 import com.likelion.server.domain.pdf.web.dto.PdfDeleteResponse;
 import com.likelion.server.domain.pdf.web.dto.PdfGroupListResponse;
 import com.likelion.server.domain.pdf.web.dto.PdfUploadResponse;
+import com.likelion.server.domain.quiz.exception.QuizGenerationFailException;
 import com.likelion.server.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -72,7 +73,8 @@ public class PdfServiceImpl implements PdfService {
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
         } catch (IOException e) {
-            throw new RuntimeException("S3 업로드 실패", e);
+            e.printStackTrace();
+            throw new QuizGenerationFailException();
         }
 
         // S3 퍼블릭 URL 생성

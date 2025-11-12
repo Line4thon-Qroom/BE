@@ -31,16 +31,22 @@ public class QuizSubmitService {
 
     public QuizSubmitResponse submitQuiz(Long userId, QuizSubmitRequest request) {
 
+        // 요청값 검증
         if (request.quiz_result_id() == null)
             throw new QuizInvalidRequestException();
 
-        // 1. quiz_result_id 로 퀴즈 및 그룹 식별
+        // 퀴즈 결과 존재 여부 확인
         QuizResult result = quizResultRepository.findById(request.quiz_result_id())
                 .orElseThrow(QuizResultNotFoundException::new);
 
         Quiz quiz = result.getQuiz();
+        if (quiz == null)
+            throw new QuizNotFoundException();
+
+        // 퀴즈 문항 존재 확인
         List<QuizQuestion> questions = quizQuestionRepository.findAllByQuizId(quiz.getId());
-        if (questions.isEmpty()) throw new QuizNotFoundException();
+        if (questions.isEmpty())
+            throw new QuizInvalidFormatException();
 
         User user = em.getReference(User.class, userId);
 
@@ -53,34 +59,57 @@ public class QuizSubmitService {
         int totalQuestions = questions.size();
         int correctCount = 0;
 
-        // 2. 제출된 답안 채점
+        // 제출된 답안 채점
         for (QuizSubmitRequest.Answer ans : request.answers()) {
+
+            // 문제 번호 유효성 체크
             QuizQuestion question = questionMap.get(ans.question_number());
-            if (question == null) continue; // 번호 불일치 예외 방지
+            if (question == null)
+                throw new QuizInvalidQuestionNumberException();
 
             // 중복 제출 방지
             if (quizUserAnswerRepository.existsByQuizResultIdAndQuestionId(result.getId(), question.getId()))
                 throw new QuizDuplicateAnswerException();
 
+            // 채점 수행
             boolean isCorrect = checkAnswer(question, ans.user_answer());
             QuizUserAnswer userAnswer = ans.toEntity(result, question, user, isCorrect);
-            quizUserAnswerRepository.save(userAnswer);
+
+            try {
+                quizUserAnswerRepository.save(userAnswer);
+            } catch (Exception e) {
+                throw new QuizSaveFailException(); // DB 저장 실패 예외
+            }
 
             if (isCorrect) correctCount++;
         }
 
-        // 3. 점수 계산 및 결과 업데이트
+        // 점수 계산 및 결과 업데이트
         int score = (int) Math.round((correctCount * 100.0) / totalQuestions);
         result.setScore(score);
         result.setCorrectCount(correctCount);
-        quizResultRepository.save(result);
 
-        // 4. 그룹 랭킹 업데이트
-        updateGroupRank(user, result.getQuiz().getGroup());
+        try {
+            quizResultRepository.save(result);
+        } catch (Exception e) {
+            throw new QuizSaveFailException();
+        }
 
+        // 그룹 정보 확인
+        Group group = quiz.getGroup();
+        if (group == null)
+            throw new QuizGroupNotFoundException();
+
+        // 그룹 랭킹 업데이트
+        updateGroupRank(user, group);
+
+        // 최종 응답 반환
         return QuizSubmitResponse.fromEntity(result.getId(), score, correctCount, totalQuestions);
     }
 
+    /**
+     * 문제 정답 채점 로직
+     */
     private boolean checkAnswer(QuizQuestion question, String userAnswer) {
         if (userAnswer == null || question.getCorrectAnswer() == null) return false;
 
@@ -98,54 +127,59 @@ public class QuizSubmitService {
         };
     }
 
+    /**
+     * 그룹 랭킹 업데이트
+     */
     private void updateGroupRank(User user, Group group) {
-        // 그룹에서 유저가 푼 모든 퀴즈 결과(QuizResult) 조회
         List<QuizResult> allResultsInGroup = quizResultRepository.findAllByUserAndGroup(user, group);
 
-        // 난이도 가중치 점수 합산
         int totalWeightedScore = allResultsInGroup.stream()
                 .mapToInt(result -> {
-                    Quiz quiz = result.getQuiz(); // 결과에서 퀴즈 정보를 가져옴
+                    Quiz quiz = result.getQuiz();
+                    if (quiz == null)
+                        throw new QuizNotFoundException();
+
                     int correctCount = result.getCorrectCount();
 
-                    // 퀴즈 난이도에 따라 가중치 부여
                     return switch (quiz.getDifficulty()) {
-                        case 상 -> correctCount * 3; // 상 3점
-                        case 중 -> correctCount * 2; // 중 2점
-                        case 하 -> correctCount * 1; // 하 1점
+                        case 상 -> correctCount * 3;
+                        case 중 -> correctCount * 2;
+                        case 하 -> correctCount * 1;
                     };
                 })
                 .sum();
 
-        // GroupRanking 테이블에서 기존 랭킹 정보를 찾거나 새로 생성
         GroupRanking ranking = groupRankingRepository.findByGroupAndUser(group, user)
                 .orElse(GroupRanking.builder()
                         .group(group)
                         .user(user)
                         .build());
 
-        // 갱신된 가중치 점수를 랭킹 테이블에 저장
         ranking.setTotalScore(totalWeightedScore);
-        groupRankingRepository.save(ranking);
 
-        // 등수 재계산
+        try {
+            groupRankingRepository.save(ranking);
+        } catch (Exception e) {
+            throw new QuizSaveFailException();
+        }
+
         recalculateRankPositions(group);
     }
 
+    /**
+     * 그룹 내 등수 재계산
+     */
     private void recalculateRankPositions(Group group) {
-        // 해당 그룹의 모든 랭킹을 총 점수(totalScore)가 높은 순으로 조회
         List<GroupRanking> rankings = groupRankingRepository.findAllByGroupOrderByTotalScoreDesc(group);
 
         int currentRank = 1;
         int sameScoreCount = 0;
         Integer previousScore = null;
 
-        // 랭킹을 순회하며 등수(rankPosition) 부여
         for (GroupRanking rank : rankings) {
             if (previousScore == null || !rank.getTotalScore().equals(previousScore)) {
-                // 이전 점수와 다르면, 현재 등수를 (동점자 수 + 1)만큼 증가시킴
                 currentRank += sameScoreCount;
-                sameScoreCount = 0; // 동점자 수 초기화
+                sameScoreCount = 0;
             }
 
             rank.setRankPosition(currentRank);

@@ -10,7 +10,7 @@ import com.likelion.server.domain.qa.repository.QaPostRepository;
 import com.likelion.server.domain.quiz.entity.Quiz;
 import com.likelion.server.domain.quiz.entity.QuizQuestion;
 import com.likelion.server.domain.quiz.entity.enums.Difficulty;
-import com.likelion.server.domain.quiz.exception.QuizNotFoundException;
+import com.likelion.server.domain.quiz.exception.*;
 import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizQuestionRepository;
@@ -45,10 +45,14 @@ public class QuizServiceImpl implements QuizService {
     // 세부 로직 분리 메서드
     private Pdf validateAndGetPdf(Long pdfId) {
         return pdfRepository.findById(pdfId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 PDF를 찾을 수 없습니다."));
+                .orElseThrow(QuizNotFoundException::new);
     }
 
+    //Quiz 엔티티
     private Quiz createQuizEntity(Pdf pdf, CreateQuizRequest request, int round) {
+        if (pdf == null || pdf.getGroup() == null)
+            throw new QuizGroupNotFoundException();
+
         Difficulty difficulty = Difficulty.fromKorean(request.difficulty());
         return Quiz.builder()
                 .pdf(pdf)
@@ -61,6 +65,7 @@ public class QuizServiceImpl implements QuizService {
                 .build();
     }
 
+    //QA 엔티티
     private QaBoard createQaBoard(Pdf pdf, Quiz quiz) {
         return QaBoard.builder()
                 .quiz(quiz)
@@ -82,29 +87,57 @@ public class QuizServiceImpl implements QuizService {
 
         // 퀴즈 생성 및 저장
         Quiz quiz = createQuizEntity(pdf, request, round);
-        quizRepository.saveAndFlush(quiz);
+        try {
+            quizRepository.saveAndFlush(quiz);
+        } catch (Exception e) {
+            throw new QuizSaveFailException();
+        }
 
         // AI 퀴즈 생성
-        List<QuizQuestion> generatedQuestions = aiQuizGenerator.generateQuestions(pdf, quiz, request);
+        List<QuizQuestion> generatedQuestions;
+        try {
+            generatedQuestions = aiQuizGenerator.generateQuestions(pdf, quiz, request);
+        } catch (QuizGenerationFailException | QuizInvalidFormatException e) {
+            throw e; // 그대로 전달
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new QuizGenerationFailException();
+        }
+
+        if (generatedQuestions == null || generatedQuestions.isEmpty())
+            throw new QuizInvalidFormatException();
 
         // 문제 저장 (Cascade 안 쓰는 경우 명시적으로 saveAll)
-        quizQuestionRepository.saveAll(generatedQuestions);
+        try {
+            quizQuestionRepository.saveAll(generatedQuestions);
+        } catch (Exception e) {
+            throw new QuizSaveFailException();
+        }
 
         // QA 게시판 생성
-        QaBoard qaBoard = createQaBoard(pdf, quiz);
-        qaBoardRepository.save(qaBoard);
+        QaBoard qaBoard;
+        try {
+            qaBoard = createQaBoard(pdf, quiz);
+            qaBoardRepository.save(qaBoard);
+        } catch (Exception e) {
+            throw new QuizSaveFailException();
+        }
 
         // 응답 DTO 변환
         return CreateQuizResponse.fromEntity(quiz, qaBoard);
     }
 
 
-    // 2. 퀴즈 조회
+    // 2. 퀴즈 상세 조회
     @Override
+    @Transactional(readOnly = true)
     public QuizDetailResponse getQuizDetail(Long quizId) {
         Quiz quiz = quizRepository.findById(quizId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 퀴즈를 찾을 수 없습니다."));
+                .orElseThrow(QuizNotFoundException::new);
+
         List<QuizQuestion> questions = quizQuestionRepository.findAllByQuizId(quizId);
+        if (questions.isEmpty())
+            throw new QuizInvalidFormatException(); // 퀴즈 문제 없음
 
         return QuizDetailResponse.fromEntities(quiz, questions);
     }
