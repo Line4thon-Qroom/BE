@@ -44,8 +44,8 @@ public class QuizPromptBuilder {
           {
             "question": "주문과 상품의 관계는?",
             "type": "객관식",
-            "options": ["1. 일대다", "2. 다대다", "3. 일대일", "4. 다대일"],
-            "answer": "2",
+            "options": ["A. 일대다", "B. 다대다", "C. 일대일", "D. 다대일"],
+            "answer": "B",
             "explanation": "주문과 상품은 다대다 관계이며, 이를 주문상품 엔티티로 풀었다."
           },
           {
