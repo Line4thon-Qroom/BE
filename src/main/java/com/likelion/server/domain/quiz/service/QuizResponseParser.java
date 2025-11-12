@@ -18,7 +18,6 @@ public class QuizResponseParser {
 
     public List<QuizQuestion> parse(String aiResponse, Quiz quiz) {
         List<QuizQuestion> questions = new ArrayList<>();
-        String cleaned = aiResponse; // 바깥에서 선언해서 어디서든 접근 가능
 
         try {
             System.out.println("\n==============================");
@@ -26,28 +25,32 @@ public class QuizResponseParser {
             System.out.println(aiResponse);
             System.out.println("==============================");
 
-            JsonNode root = null;
+            // 백틱 및 마크다운 제거 (모든 케이스 커버)
+            String cleaned = aiResponse
+                    .replaceAll("(?i)```json", "")  // ```json, ```JSON
+                    .replaceAll("(?i)```", "")      // ``` or ```anything
+                    .replaceAll("`", "")            // 단일 백틱
+                    .replaceAll("[\\uFEFF]", "")    // BOM 제거
+                    .replaceAll("^[\\s\\p{Z}]+", "") // 선행 공백 제거
+                    .replaceAll("[\\s\\p{Z}]+$", "") // 후행 공백 제거
+                    .trim();
+
+            System.out.println("[DEBUG] 🧹 백틱 제거 후 첫 문자: '" +
+                    cleaned.substring(0, Math.min(5, cleaned.length())) + "'");
+
+            JsonNode root;
             try {
-                // ✅ 백틱(```) 및 제어문자 제거
-                cleaned = aiResponse
-                        .replaceAll("(?s)```json", "")
-                        .replaceAll("(?s)```", "")
-                        .replaceAll("(?s)`", "")
-                        .replaceAll("[\\uFEFF]", "")
-                        .replaceAll("(?s)^\\s+", "")
-                        .replaceAll("(?s)\\s+$", "")
-                        .trim();
-
-                System.out.println("[DEBUG] 🧹 백틱 제거 후 첫 문자: '" +
-                        cleaned.substring(0, Math.min(5, cleaned.length())) + "'");
-
                 root = objectMapper.readTree(cleaned);
-
             } catch (Exception e1) {
                 System.err.println("⚠️ 1차 파싱 실패 → 재시도 중...");
                 try {
-                    // 혹시 남은 제어문자 제거 후 재시도
-                    String retry = aiResponse.replaceAll("[^\\x20-\\x7E]", "").trim();
+                    // 남은 제어문자 제거 후 재시도
+                    String retry = aiResponse
+                            .replaceAll("(?i)```json", "")
+                            .replaceAll("(?i)```", "")
+                            .replaceAll("`", "")
+                            .replaceAll("[^\\x20-\\x7E]", "")
+                            .trim();
                     root = objectMapper.readTree(retry);
                 } catch (Exception e2) {
                     System.err.println("❌ JSON 파싱 완전 실패: " + e2.getMessage());
@@ -63,7 +66,7 @@ public class QuizResponseParser {
                 return createFallback(quiz);
             }
 
-            // ✅ 각 문항 파싱
+            // 각 문항 파싱
             for (JsonNode node : root) {
                 String questionText = node.path("question").asText("");
                 String correctAnswer = node.path("answer").asText("");
@@ -82,9 +85,8 @@ public class QuizResponseParser {
                         .explanation(explanation)
                         .build();
 
-                // 객관식이면 보기 자동 생성
+                // 객관식 보기 처리
                 if (type == Type.MULTIPLE_CHOICE) {
-                    // AI 응답이 보기 리스트를 제공하는 경우
                     if (node.has("options")) {
                         for (JsonNode optionNode : node.get("options")) {
                             String optionText = optionNode.asText();
@@ -95,9 +97,7 @@ public class QuizResponseParser {
                                     .build();
                             question.getOptions().add(option);
                         }
-                    }
-                    // AI 응답이 보기 배열을 제공하지 않은 경우 (기본 4개 보기 예시)
-                    else {
+                    } else {
                         String[] defaultOptions = {"A", "B", "C", "D"};
                         for (String opt : defaultOptions) {
                             QuizOption option = QuizOption.builder()
@@ -110,23 +110,20 @@ public class QuizResponseParser {
                     }
                 }
 
-                // OX 문제라면 O, X 보기 자동 추가
+                // OX 문제 보기 자동 추가
                 else if (type == Type.OX) {
                     QuizOption o = QuizOption.builder()
                             .question(question)
                             .optionText("O")
                             .isAnswer(correctAnswer.equalsIgnoreCase("O"))
                             .build();
-
                     QuizOption x = QuizOption.builder()
                             .question(question)
                             .optionText("X")
                             .isAnswer(correctAnswer.equalsIgnoreCase("X"))
                             .build();
-
                     question.getOptions().addAll(List.of(o, x));
                 }
-
 
                 questions.add(question);
                 System.out.println("[DEBUG] ✅ 문제 추가됨 → " + questionText);
@@ -160,7 +157,6 @@ public class QuizResponseParser {
         return fallback;
     }
 
-    // ✅ Type 문자열 → Enum 변환
     private Type convertType(String typeStr) {
         if (typeStr == null || typeStr.isBlank()) return Type.OX;
         typeStr = typeStr.trim().toUpperCase();
