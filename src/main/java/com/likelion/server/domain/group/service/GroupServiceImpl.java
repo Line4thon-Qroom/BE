@@ -69,7 +69,7 @@ public class GroupServiceImpl implements GroupService {
         if (createGroupRequest.examDate() != null && !createGroupRequest.examDate().isBlank()) {
             examDate = LocalDate.parse(createGroupRequest.examDate());
         }
-        String code = generateUniqueCode(6);
+        String code = generateUniqueCode(4);
         Group group = Group.builder()
                 .name(createGroupRequest.name())
                 .examDate(String.valueOf(examDate))
