@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,22 +31,32 @@ public class QuizSubmitService {
 
     public QuizSubmitResponse submitQuiz(Long userId, QuizSubmitRequest request) {
 
-        if (request.quiz_result_id() == null || request.quiz_id() == null)
+        if (request.quiz_result_id() == null)
             throw new QuizInvalidRequestException();
 
+        // 1. quiz_result_id 로 퀴즈 및 그룹 식별
         QuizResult result = quizResultRepository.findById(request.quiz_result_id())
                 .orElseThrow(QuizResultNotFoundException::new);
 
-        List<QuizQuestion> questions = quizQuestionRepository.findAllByQuizId(request.quiz_id());
+        Quiz quiz = result.getQuiz();
+        List<QuizQuestion> questions = quizQuestionRepository.findAllByQuizId(quiz.getId());
         if (questions.isEmpty()) throw new QuizNotFoundException();
 
         User user = em.getReference(User.class, userId);
 
+        // 문제 번호 → 문제 엔티티 매핑
+        Map<Integer, QuizQuestion> questionMap = new HashMap<>();
+        for (int i = 0; i < questions.size(); i++) {
+            questionMap.put(i + 1, questions.get(i));
+        }
+
         int totalQuestions = questions.size();
         int correctCount = 0;
 
+        // 2. 제출된 답안 채점
         for (QuizSubmitRequest.Answer ans : request.answers()) {
-            QuizQuestion question = em.getReference(QuizQuestion.class, ans.question_id());
+            QuizQuestion question = questionMap.get(ans.question_number());
+            if (question == null) continue; // 번호 불일치 예외 방지
 
             // 중복 제출 방지
             if (quizUserAnswerRepository.existsByQuizResultIdAndQuestionId(result.getId(), question.getId()))
@@ -57,11 +69,13 @@ public class QuizSubmitService {
             if (isCorrect) correctCount++;
         }
 
+        // 3. 점수 계산 및 결과 업데이트
         int score = (int) Math.round((correctCount * 100.0) / totalQuestions);
         result.setScore(score);
         result.setCorrectCount(correctCount);
         quizResultRepository.save(result);
 
+        // 4. 그룹 랭킹 업데이트
         updateGroupRank(user, result.getQuiz().getGroup());
 
         return QuizSubmitResponse.fromEntity(result.getId(), score, correctCount, totalQuestions);

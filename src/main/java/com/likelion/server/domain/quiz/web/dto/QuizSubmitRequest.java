@@ -11,13 +11,11 @@ import java.util.List;
 @Builder
 public record QuizSubmitRequest(
         Long quiz_result_id,
-        Long quiz_id,
         List<Answer> answers
 ) {
     @Builder
     public record Answer(
-            Long question_id,
-            String type,
+            Integer question_number,
             String user_answer
     ) {
         public QuizUserAnswer toEntity(QuizResult result, QuizQuestion question, User user, boolean isCorrect) {
