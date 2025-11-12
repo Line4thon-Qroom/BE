@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,7 @@ public class QuizDetailResponse {
     public static class QuizInfo {
         private Long id;
         private Long pdf_id;
+        private String group_name;
         private String title;
         private String difficulty;
         private int round;
@@ -39,6 +41,7 @@ public class QuizDetailResponse {
             return QuizInfo.builder()
                     .id(quiz.getId())
                     .pdf_id(quiz.getPdf().getId())
+                    .group_name(quiz.getGroup().getName())
                     .title(quiz.getPdf().getFileName())
                     .difficulty(quiz.getDifficulty().name())
                     .round(quiz.getRound())
@@ -56,15 +59,17 @@ public class QuizDetailResponse {
     public static class QuestionInfo {
         private Long id;
         private String type;
+        private Integer question_number;
         private String question_text;
         private String correct_answer;
         private String explanation;
         private List<OptionInfo> options;
 
-        public static QuestionInfo fromEntity(QuizQuestion q) {
+        public static QuestionInfo fromEntity(QuizQuestion q, int index) {
             return QuestionInfo.builder()
                     .id(q.getId())
                     .type(convertTypeToKorean(q.getType()))
+                    .question_number(index + 1)
                     .question_text(q.getQuestionText())
                     .correct_answer(q.getCorrectAnswer())
                     .explanation(q.getExplanation())
@@ -72,6 +77,18 @@ public class QuizDetailResponse {
                             .map(OptionInfo::fromEntity)
                             .collect(Collectors.toList()))
                     .build();
+        }
+
+        public static List<QuestionInfo> fromEntityList(List<QuizQuestion> questions) {
+            if (questions == null || questions.isEmpty()) return List.of();
+
+            List<QuestionInfo> result = new ArrayList<>();
+
+            for (int i = 0; i < questions.size(); i++) {
+                result.add(fromEntity(questions.get(i), i)); // 순번 자동 부여
+            }
+
+            return result;
         }
 
         static String convertTypeToKorean(Type type) {
@@ -102,9 +119,7 @@ public class QuizDetailResponse {
     public static QuizDetailResponse fromEntities(Quiz quiz, List<QuizQuestion> questions) {
         return QuizDetailResponse.builder()
                 .quiz(QuizInfo.fromEntity(quiz))
-                .questions(questions.stream()
-                        .map(QuestionInfo::fromEntity)
-                        .collect(Collectors.toList()))
+                .questions(QuestionInfo.fromEntityList(questions))
                 .build();
     }
 }

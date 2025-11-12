@@ -7,6 +7,7 @@ import lombok.Builder;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.likelion.server.domain.quiz.web.dto.QuizDetailResponse.QuestionInfo.convertTypeToKorean;
@@ -19,6 +20,7 @@ public record QuizResultDetailResponse(
     @Builder
     public record QuizResultInfo(
             Long quiz_id,
+            String group_name,
             Integer score,
             Integer correct_count,
             Integer total_questions,
@@ -29,6 +31,7 @@ public record QuizResultDetailResponse(
     public record AnswerInfo(
             Long quiz_result_id,
             Long question_id,
+            Integer question_number,
             String question_text,
             String type,
             String explanation,
@@ -48,6 +51,8 @@ public record QuizResultDetailResponse(
 
         Set<Long> seen = new HashSet<>();
 
+        AtomicInteger number = new AtomicInteger(1);
+
         List<AnswerInfo> answerInfos = allQuestions.stream()
                 .filter(q -> seen.add(q.getId()))
                 .map(q -> {
@@ -57,6 +62,7 @@ public record QuizResultDetailResponse(
                     return AnswerInfo.builder()
                             .quiz_result_id(result.getId())
                             .question_id(q.getId())
+                            .question_number(number.getAndIncrement())
                             .question_text(q.getQuestionText())
                             .type(convertTypeToKorean(q.getType()))
                             .explanation(q.getExplanation())
@@ -74,6 +80,7 @@ public record QuizResultDetailResponse(
         return QuizResultDetailResponse.builder()
                 .quiz_result(QuizResultInfo.builder()
                         .quiz_id(result.getQuiz().getId())
+                        .group_name(result.getQuiz().getGroup().getName())
                         .score(result.getScore())
                         .correct_count(result.getCorrectCount())
                         .total_questions(result.getQuiz().getTotalQuestions())
