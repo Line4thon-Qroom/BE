@@ -44,8 +44,8 @@ public class QaServiceImpl implements QaService {
         QaPost newPost = QaPost.builder()
                 .board(board)
                 .writer(currentUser)
-                .title(request.title())
                 .content(request.content())
+                .isAnonymous(request.isAnonymous() != null ? request.isAnonymous() : false)
                 .build();
 
         // 엔티티 저장
@@ -72,6 +72,7 @@ public class QaServiceImpl implements QaService {
                 .post(parentPost)
                 .user(currentUser)
                 .content(request.content())
+                .isAnonymous(request.isAnonymous() != null ? request.isAnonymous() : false)
                 .build();
 
         // 댓글 저장
