@@ -85,7 +85,6 @@ public record QuizQaResponse(
 
     public record PostDto(
             Long id,
-            String title,
             UserNicknameDto user,
             String content,
             @JsonProperty("created_at") String createdAt,
@@ -94,8 +93,9 @@ public record QuizQaResponse(
         public PostDto(QaPost post, List<CommentDto> comments) {
             this(
                     post.getId(),
-                    post.getTitle(),
-                    new UserNicknameDto(post.getWriter()),
+                    post.getIsAnonymous()
+                            ? new UserNicknameDto("익명") // 익명일 경우
+                            : new UserNicknameDto(post.getWriter()), // 실명일 경우
                     post.getContent(),
                     post.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     comments
@@ -112,7 +112,9 @@ public record QuizQaResponse(
         public CommentDto(QaComment comment) {
             this(
                     comment.getId(),
-                    new UserNicknameDto(comment.getUser()),
+                    comment.getIsAnonymous()
+                            ? new UserNicknameDto("익명") // 익명일 경우
+                            : new UserNicknameDto(comment.getUser()), // 실명일 경우
                     comment.getContent(),
                     comment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             );

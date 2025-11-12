@@ -9,7 +9,6 @@ public record QaPostResponse(
         Long id,
         Long boardId,
         UserDto user,
-        String title,
         String content,
         String createdAt
 ) {
@@ -21,14 +20,19 @@ public record QaPostResponse(
         public UserDto(User user) {
             this(user.getId(), user.getNickname());
         }
+
+        public UserDto(Long userId) {
+            this(userId, "익명");
+        }
     }
 
     public QaPostResponse(QaPost qaPost) {
         this(
                 qaPost.getId(),
                 qaPost.getBoard().getId(),
-                new UserDto(qaPost.getWriter()),
-                qaPost.getTitle(),
+                qaPost.getIsAnonymous()
+                        ? new UserDto(qaPost.getWriter().getId()) // 익명
+                        : new UserDto(qaPost.getWriter()),       // 실명
                 qaPost.getContent(),
                 qaPost.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );

@@ -26,4 +26,7 @@ public class QaComment extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(nullable = false)
+    private Boolean isAnonymous;
 }
