@@ -1,5 +1,9 @@
 package com.likelion.server.domain.quiz.service;
 import com.likelion.server.domain.pdf.entity.Pdf;
+import com.likelion.server.domain.quiz.exception.QuizGenerationFailException;
+import com.likelion.server.domain.quiz.exception.QuizInvalidFormatException;
+import com.likelion.server.domain.quiz.exception.QuizNotFoundException;
+import com.likelion.server.domain.quiz.exception.QuizPdfInvalidException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -11,6 +15,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +28,10 @@ public class PdfTextExtractor {
     public String extract(Pdf pdf) {
 
         try {
+            if (pdf == null || pdf.getS3Url() == null)
+                throw new QuizNotFoundException(); // PDF 객체 자체가 잘못된 경우
+
+
             String key = extractS3Key(pdf.getS3Url());
             // [1] S3 다운로드 정보 출력
             System.out.println("[DEBUG] 📄 PDF S3 URL: " + pdf.getS3Url());
@@ -44,7 +53,7 @@ public class PdfTextExtractor {
 
             // [3] 빈 파일이면 바로 예외 발생시키기
             if (tempFile.length() == 0) {
-                throw new RuntimeException("S3에서 받은 PDF 파일이 비어 있습니다. 업로드 또는 Key를 확인하세요.");
+                throw new QuizPdfInvalidException(); // 비어있는 파일
             }
 
             // [4] PDF 텍스트 추출
@@ -54,18 +63,30 @@ public class PdfTextExtractor {
 
                 System.out.println("[DEBUG] ✅ PDF 텍스트 추출 완료, 길이: " + text.length());
 
+                if (text == null || text.isBlank())
+                    throw new QuizPdfInvalidException(); // 내용 없음
+
                 return text.length() > 8000 ? text.substring(0, 8000) : text;
+            } catch (IOException e) {
+                throw new QuizPdfInvalidException(); // 손상된 PDF
             } finally {
                 tempFile.delete();
             }
 
-        } catch (Exception e) { // 콘솔에 자세한 원인 출력
-            throw new RuntimeException("PDF 텍스트 추출 실패", e);
+        } catch (QuizNotFoundException | QuizPdfInvalidException | QuizGenerationFailException e) {
+            throw e;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new QuizGenerationFailException();
         }
     }
 
     private String extractS3Key(String s3Url) {
-        int idx = s3Url.indexOf(".amazonaws.com/") + ".amazonaws.com/".length();
-        return s3Url.substring(idx);
+        try {
+            int idx = s3Url.indexOf(".amazonaws.com/") + ".amazonaws.com/".length();
+            return s3Url.substring(idx);
+        } catch (Exception e) {
+            throw new QuizPdfInvalidException();
+        }
     }
 }

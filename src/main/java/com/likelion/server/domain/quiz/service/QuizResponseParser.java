@@ -6,6 +6,7 @@ import com.likelion.server.domain.quiz.entity.Quiz;
 import com.likelion.server.domain.quiz.entity.QuizOption;
 import com.likelion.server.domain.quiz.entity.QuizQuestion;
 import com.likelion.server.domain.quiz.entity.enums.Type;
+import com.likelion.server.domain.quiz.exception.QuizAiParseException;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class QuizResponseParser {
                     root = objectMapper.readTree(retry);
                 } catch (Exception e2) {
                     System.err.println("❌ JSON 파싱 완전 실패: " + e2.getMessage());
-                    return createFallback(quiz);
+                    throw new QuizAiParseException(); // ❗ JSON 파싱 실패 예외
                 }
             }
 
@@ -63,7 +64,7 @@ public class QuizResponseParser {
 
             if (!root.isArray()) {
                 System.err.println("❌ GPT 응답이 JSON 배열이 아닙니다.");
-                return createFallback(quiz);
+                throw new QuizAiParseException();
             }
 
             // 각 문항 파싱
@@ -133,28 +134,19 @@ public class QuizResponseParser {
             System.out.println("==============================\n");
 
             if (questions.isEmpty()) {
-                return createFallback(quiz);
+                System.err.println("⚠️ 문제 리스트가 비어 있습니다. Fallback 처리 대신 예외 발생.");
+                throw new QuizAiParseException();
             }
 
+        } catch (QuizAiParseException e) {
+            throw e; // ❗ 우리가 만든 예외는 그대로 던짐
         } catch (Exception e) {
             System.err.println("❌ GPT 응답 파싱 중 예외 발생: " + e.getMessage());
             e.printStackTrace();
-            return createFallback(quiz);
+            throw new QuizAiParseException(); // ❗ 그 외 모든 예외도 파싱 실패로 처리
         }
 
         return questions;
-    }
-
-    private List<QuizQuestion> createFallback(Quiz quiz) {
-        List<QuizQuestion> fallback = new ArrayList<>();
-        fallback.add(QuizQuestion.builder()
-                .quiz(quiz)
-                .type(Type.OX)
-                .questionText("AI 퀴즈 생성 결과를 파싱하지 못했습니다.")
-                .correctAnswer("N/A")
-                .explanation("GPT 응답 형식을 확인하세요.")
-                .build());
-        return fallback;
     }
 
     private Type convertType(String typeStr) {
