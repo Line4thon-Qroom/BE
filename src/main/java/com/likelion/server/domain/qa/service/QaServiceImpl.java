@@ -16,7 +16,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -85,23 +88,34 @@ public class QaServiceImpl implements QaService {
     @Override
     public QaBoardRefreshResponse getBoard(Long quizId) {
 
-        // quiz_id로 QaBoard 조회
+        // 기본 데이터 조회
         QaBoard board = qaBoardRepository.findByQuizId(quizId)
                 .orElseThrow(QaNotFoundException::new);
+        List<QaPost> posts = qaPostRepository.findAllByBoardOrderByCreatedAtAsc(board);
 
-        // board의 모든 QaPost 조회
-        List<QaPost> posts = qaPostRepository.findAllByBoard(board);
+        List<QaBoardRefreshResponse.PostDto> postDtos = new ArrayList<>();
 
-        // 각 QaPost를 PostDto로 변환
-        List<QaBoardRefreshResponse.PostDto> postDtos = posts.stream()
-                .map(post -> {
-                    // 각 post의 댓글 수 조회
-                    Integer commentsCount = qaCommentRepository.countByPost(post);
-                    return new QaBoardRefreshResponse.PostDto(post, commentsCount);
-                })
-                .toList();
+        for (QaPost post : posts) {
+            // 익명 번호 매핑
+            Map<Long, Integer> anonymousMap = new HashMap<>();
+            int anonymousCounter = 1;
 
-        // return
+            User postWriter = post.getWriter();
+            QaBoardRefreshResponse.UserDto postUserDto;
+
+            if (post.getIsAnonymous()) {
+                anonymousMap.put(postWriter.getId(), anonymousCounter);
+                String nickname = "익명 " + anonymousMap.get(postWriter.getId());
+                postUserDto = new QaBoardRefreshResponse.UserDto(nickname);
+            } else {
+                postUserDto = new QaBoardRefreshResponse.UserDto(postWriter);
+            }
+
+            Integer commentsCount = qaCommentRepository.countByPost(post);
+
+            postDtos.add(new QaBoardRefreshResponse.PostDto(post, postUserDto, commentsCount));
+        }
+
         return new QaBoardRefreshResponse(board, postDtos);
     }
 }
