@@ -1,12 +1,15 @@
 package com.likelion.server.global.jwt;
 
+import com.likelion.server.global.exception.BaseException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.*;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
@@ -15,16 +18,12 @@ import java.io.IOException;
  * - 요청 헤더의 Authorization에서 JWT 토큰 추출
  * - 유효성 검증 후 SecurityContext에 인증 저장
  */
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtUserDetailsService userDetailsService;
-
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
-                                   JwtUserDetailsService userDetailsService) {
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.userDetailsService = userDetailsService;
-    }
+    private final AuthenticationEntryPoint authenticationEntryPoint; // ✅ 추가
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,23 +31,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        String header = request.getHeader("Authorization");
+        try {
+            String token = resolveToken(request);
 
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
+            if (token != null) {
+                // ⛳ 여기서 JwtTokenProvider가 Jwt*Exception들을 throw
+                jwtTokenProvider.validateToken(token);
 
-            if (jwtTokenProvider.validateToken(token)) {
                 String nickname = jwtTokenProvider.getNicknameFromToken(token);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(nickname);
 
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+
+        } catch (BaseException e) { // JwtExpiredException, JwtInvalidException 등
+            // EntryPoint가 ErrorResponse(JSON)로 응답할 수 있게 예외를 전달
+            request.setAttribute("jwt_exception", e); // ✅ EntryPoint에서 꺼내 쓸 키
+            SecurityContextHolder.clearContext();
+            authenticationEntryPoint.commence(
+                    request, response,
+                    new org.springframework.security.authentication.InsufficientAuthenticationException(e.getMessage(), e)
+            );
+        }
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        return (bearer != null && bearer.startsWith("Bearer ")) ? bearer.substring(7) : null;
     }
 }
