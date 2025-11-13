@@ -24,9 +24,9 @@ public class QaPost extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User writer;
 
-    @Column(nullable = false)
-    private String title;
-
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(nullable = false)
+    private Boolean isAnonymous;
 }

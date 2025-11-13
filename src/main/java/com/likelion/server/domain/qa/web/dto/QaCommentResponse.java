@@ -21,13 +21,19 @@ public record QaCommentResponse(
         public UserDto(User user) {
             this(user.getId(), user.getNickname());
         }
+
+        public UserDto(Long userId) {
+            this(userId, "익명");
+        }
     }
 
     public QaCommentResponse(QaComment qaComment) {
         this(
                 qaComment.getId(),
                 qaComment.getPost().getId(),
-                new UserDto(qaComment.getUser()),
+                qaComment.getIsAnonymous()
+                        ? new UserDto(qaComment.getUser().getId()) // 익명
+                        : new UserDto(qaComment.getUser()),       // 실명
                 qaComment.getContent(),
                 qaComment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );

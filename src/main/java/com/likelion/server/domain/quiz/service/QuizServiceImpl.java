@@ -4,6 +4,8 @@ import com.likelion.server.domain.group.entity.Group;
 import com.likelion.server.domain.pdf.entity.Pdf;
 import com.likelion.server.domain.pdf.repository.PdfRepository;
 import com.likelion.server.domain.qa.entity.QaBoard;
+import com.likelion.server.domain.qa.entity.QaComment;
+import com.likelion.server.domain.qa.entity.QaPost;
 import com.likelion.server.domain.qa.exception.QaNotFoundException;
 import com.likelion.server.domain.qa.repository.QaBoardRepository;
 import com.likelion.server.domain.qa.repository.QaCommentRepository;
@@ -17,13 +19,22 @@ import com.likelion.server.domain.quiz.exception.*;
 import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizQuestionRepository;
-import com.likelion.server.domain.quiz.web.dto.*;
+import com.likelion.server.domain.quiz.web.dto.CreateQuizRequest;
+import com.likelion.server.domain.quiz.web.dto.CreateQuizResponse;
+import com.likelion.server.domain.quiz.web.dto.CreateUserQuizRequest;
+import com.likelion.server.domain.quiz.web.dto.QuizDetailResponse;
+import com.likelion.server.domain.quiz.web.dto.QuizQaResponse;
+
+import com.likelion.server.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -210,11 +221,10 @@ public class QuizServiceImpl implements QuizService {
     @Override
     public QuizQaResponse getQuizWithQa(Long quizId) {
 
-        // Quiz 조회
+        // Quiz DTO
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(QuizNotFoundException::new);
 
-        // 질문 목록 조회
         List<QuizQaResponse.QuestionDto> questionDtos = quizQuestionRepository.findAllByQuizId(quizId)
                 .stream()
                 .map(question -> {
@@ -229,23 +239,55 @@ public class QuizServiceImpl implements QuizService {
                 .collect(Collectors.toList());
 
         QuizQaResponse.QuizDto quizDto = new QuizQaResponse.QuizDto(quiz, questionDtos);
-
+        // QA Board DTO
         QaBoard qaBoard = qaBoardRepository.findByQuizId(quizId)
-                .orElseThrow(() -> new QaNotFoundException());
+                .orElseThrow(QaNotFoundException::new);
 
-        // 게시글 목록 조회
-        List<QuizQaResponse.PostDto> postDtos = qaPostRepository.findAllByBoard(qaBoard)
-                .stream()
-                .map(post -> {
-                    // 댓글 목록 조회
-                    List<QuizQaResponse.CommentDto> commentDtos = qaCommentRepository.findAllByPost(post)
-                            .stream()
-                            .map(QuizQaResponse.CommentDto::new)
-                            .collect(Collectors.toList());
+        // 게시글/댓글 모두 생성순 정렬
+        List<QaPost> posts = qaPostRepository.findAllByBoardOrderByCreatedAtAsc(qaBoard);
+        List<QuizQaResponse.PostDto> postDtos = new ArrayList<>();
 
-                    return new QuizQaResponse.PostDto(post, commentDtos);
-                })
-                .collect(Collectors.toList());
+        for (QaPost post : posts) {
+
+            // 익명 번호 매핑 로직 (게시글마다 리셋)
+            Map<Long, Integer> anonymousMap = new HashMap<>();
+            int anonymousCounter = 1;
+
+            // 게시글 작성자 익명 처리
+            User postWriter = post.getWriter();
+            QuizQaResponse.UserNicknameDto postUserDto;
+
+            if (post.getIsAnonymous()) {
+                anonymousMap.put(postWriter.getId(), anonymousCounter++);
+                String nickname = "익명 " + anonymousMap.get(postWriter.getId());
+                postUserDto = new QuizQaResponse.UserNicknameDto(nickname);
+            } else {
+                postUserDto = new QuizQaResponse.UserNicknameDto(postWriter);
+            }
+
+            // 댓글 목록 조회 및 익명 처리
+            List<QaComment> comments = qaCommentRepository.findAllByPostOrderByCreatedAtAsc(post);
+            List<QuizQaResponse.CommentDto> commentDtos = new ArrayList<>();
+
+            for (QaComment comment : comments) {
+                User commentWriter = comment.getUser();
+                QuizQaResponse.UserNicknameDto commentUserDto;
+
+                if (comment.getIsAnonymous()) {
+                    if (!anonymousMap.containsKey(commentWriter.getId())) {
+                        anonymousMap.put(commentWriter.getId(), anonymousCounter++);
+                    }
+                    String nickname = "익명 " + anonymousMap.get(commentWriter.getId());
+                    commentUserDto = new QuizQaResponse.UserNicknameDto(nickname);
+                } else {
+                    commentUserDto = new QuizQaResponse.UserNicknameDto(commentWriter);
+                }
+
+                commentDtos.add(new QuizQaResponse.CommentDto(comment, commentUserDto));
+            }
+
+            postDtos.add(new QuizQaResponse.PostDto(post, postUserDto, commentDtos));
+        }
 
         QuizQaResponse.QaBoardDto qaBoardDto = new QuizQaResponse.QaBoardDto(qaBoard, postDtos);
         return new QuizQaResponse(quizDto, qaBoardDto);

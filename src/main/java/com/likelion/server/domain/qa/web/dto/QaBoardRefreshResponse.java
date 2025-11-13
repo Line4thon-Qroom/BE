@@ -14,16 +14,14 @@ public record QaBoardRefreshResponse(
 ) {
     public record PostDto(
             Long id,
-            String title,
             UserDto user,
             @JsonProperty("comments_count") Integer commentsCount, // "comments_count": 3
             @JsonProperty("created_at") String createdAt
     ) {
-        public PostDto(QaPost post, Integer commentsCount) {
+        public PostDto(QaPost post, UserDto userDto, Integer commentsCount) {
             this(
                     post.getId(),
-                    post.getTitle(),
-                    new UserDto(post.getWriter()),
+                    userDto,
                     commentsCount,
                     post.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             );

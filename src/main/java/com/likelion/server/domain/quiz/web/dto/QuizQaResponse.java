@@ -85,17 +85,15 @@ public record QuizQaResponse(
 
     public record PostDto(
             Long id,
-            String title,
             UserNicknameDto user,
             String content,
             @JsonProperty("created_at") String createdAt,
             List<CommentDto> comments
     ) {
-        public PostDto(QaPost post, List<CommentDto> comments) {
+        public PostDto(QaPost post, UserNicknameDto userDto, List<CommentDto> comments) {
             this(
                     post.getId(),
-                    post.getTitle(),
-                    new UserNicknameDto(post.getWriter()),
+                    userDto,
                     post.getContent(),
                     post.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     comments
@@ -109,10 +107,10 @@ public record QuizQaResponse(
             String content,
             @JsonProperty("created_at") String createdAt
     ) {
-        public CommentDto(QaComment comment) {
+        public CommentDto(QaComment comment, UserNicknameDto userDto) {
             this(
                     comment.getId(),
-                    new UserNicknameDto(comment.getUser()),
+                    userDto,
                     comment.getContent(),
                     comment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             );
