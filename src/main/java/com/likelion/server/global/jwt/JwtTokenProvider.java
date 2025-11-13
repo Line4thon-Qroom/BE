@@ -1,5 +1,9 @@
 package com.likelion.server.global.jwt;
 
+import com.likelion.server.global.exception.jwt.JwtExpiredException;
+import com.likelion.server.global.exception.jwt.JwtInvalidException;
+import com.likelion.server.global.exception.jwt.JwtMalformedException;
+import com.likelion.server.global.exception.jwt.JwtUnsupportedException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -8,14 +12,13 @@ import javax.crypto.SecretKey;
 import java.security.Key;
 import java.util.Date;
 
-/**
- * JWT 토큰 생성 / 검증 유틸리티 (parserBuilder 없는 버전)
- */
+//JWT 토큰 생성 / 검증 유틸리티
 @Component
 public class JwtTokenProvider {
 
-    // 비밀키 (256bit 이상 권장)
+    // 비밀키
     private static final String SECRET_KEY = "QROOM_SECRET_KEY_QROOM_SECRET_KEY_1234567891011";
+
     // 토큰 유효기간
     private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 60;       // 1시간
     private static final long REFRESH_TOKEN_EXPIRATION = 1000 * 60 * 60 * 24 * 7; // 7일
@@ -44,17 +47,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    /** 2. 토큰에서 닉네임(subject) 추출 */
-    public String getNicknameFromToken(String token) {
-        return Jwts.parser()
-                .verifyWith((SecretKey) key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
-    }
-
-    /** 3. 토큰 유효성 검증 */
+    /** 2. 토큰 유효성 검증 */
     public boolean validateToken(String token) {
         try {
             Jwts.parser()
@@ -62,11 +55,43 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token);
             return true;
-        } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            System.out.println("❌ JWT 만료됨");
-        } catch (Exception e) {
-            System.out.println("❌ JWT 검증 실패: " + e.getMessage());
+        }  catch (ExpiredJwtException e) {
+            System.err.println("❌ JWT 만료됨: " + e.getMessage());
+            throw new JwtExpiredException();
+
+        } catch (UnsupportedJwtException e) {
+            System.err.println("❌ 지원되지 않는 JWT 형식: " + e.getMessage());
+            throw new JwtUnsupportedException();
+
+        } catch (MalformedJwtException e) {
+            System.err.println("❌ JWT 구조 손상됨: " + e.getMessage());
+            throw new JwtMalformedException();
+
+        } catch (SignatureException | IllegalArgumentException e) {
+            System.err.println("❌ JWT 서명 불일치 또는 잘못된 토큰: " + e.getMessage());
+            throw new JwtInvalidException();
+
+        } catch (JwtException e) {
+            System.err.println("❌ JWT 파싱 중 일반 예외: " + e.getMessage());
+            throw new JwtInvalidException();
         }
-        return false;
+    }
+
+    /** 3. 토큰에서 닉네임(subject) 추출 */
+    public String getNicknameFromToken(String token) {
+        try {
+            return Jwts.parser()
+                    .verifyWith((SecretKey) key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .getSubject();
+        } catch (ExpiredJwtException e) {
+            System.err.println("❌ Access Token 만료: " + e.getMessage());
+            throw new JwtExpiredException();
+        } catch (JwtException e) {
+            System.err.println("❌ JWT 파싱 실패: " + e.getMessage());
+            throw new JwtInvalidException();
+        }
     }
 }

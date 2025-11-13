@@ -47,4 +47,15 @@ public class ErrorResponse<T> extends BaseResponse {
                 .data(data)
                 .build();
     }
+
+    public static <T> ErrorResponse<T> of(String code, String message, int httpStatus) {
+        return ErrorResponse.<T>builder()
+                .code(code)
+                .httpStatus(httpStatus)
+                .message(message)
+                .data(null)
+                .build();
+    }
+
+
 }
