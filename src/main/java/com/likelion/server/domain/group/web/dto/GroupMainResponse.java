@@ -66,7 +66,7 @@ public record GroupMainResponse(
             this(
                     quiz.getId(),
                     quiz.getTitle(),
-                    quiz.getDifficulty().getKorean(),
+                    quiz.getDifficulty() != null ? quiz.getDifficulty().getKorean() : null,
                     participantsCount
             );
         }
