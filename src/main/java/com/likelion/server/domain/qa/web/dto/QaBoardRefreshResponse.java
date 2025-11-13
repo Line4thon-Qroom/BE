@@ -18,12 +18,10 @@ public record QaBoardRefreshResponse(
             @JsonProperty("comments_count") Integer commentsCount, // "comments_count": 3
             @JsonProperty("created_at") String createdAt
     ) {
-        public PostDto(QaPost post, Integer commentsCount) {
+        public PostDto(QaPost post, UserDto userDto, Integer commentsCount) {
             this(
                     post.getId(),
-                    post.getIsAnonymous()
-                            ? new UserDto("익명") // 익명일 경우
-                            : new UserDto(post.getWriter()), // 실명일 경우
+                    userDto,
                     commentsCount,
                     post.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             );
