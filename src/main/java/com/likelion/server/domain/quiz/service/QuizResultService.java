@@ -36,7 +36,7 @@ public class QuizResultService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 퀴즈를 찾을 수 없습니다."));
 
         User user = em.getReference(User.class, userId);
-        Group group = quiz.getPdf().getGroup();
+        Group group = quiz.getGroup();
 
         QuizResult quizResult = request.toEntity(quiz, user, group);
 

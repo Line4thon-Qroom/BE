@@ -17,4 +17,13 @@ public enum Type {
     public String getDisplayName() {
         return displayName;
     }
+
+    public static Type fromKorean(String value) {
+        return switch (value) {
+            case "객관식" -> MULTIPLE_CHOICE;
+            case "단답형" -> SHORT_ANSWER;
+            case "OX", "O,X", "O X" -> OX; // OX 입력 변형도 허용
+            default -> throw new IllegalArgumentException("잘못된 문제 유형: " + value);
+        };
+    }
 }
