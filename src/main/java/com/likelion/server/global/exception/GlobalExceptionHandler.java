@@ -1,8 +1,13 @@
 package com.likelion.server.global.exception;
 
+import com.likelion.server.global.exception.jwt.JwtExpiredException;
+import com.likelion.server.global.exception.jwt.JwtInvalidException;
+import com.likelion.server.global.exception.jwt.JwtMalformedException;
+import com.likelion.server.global.exception.jwt.JwtUnsupportedException;
 import com.likelion.server.global.response.ErrorResponse;
 import com.likelion.server.global.response.code.GlobalErrorCode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -86,6 +91,35 @@ public class GlobalExceptionHandler {
         log.error("Exception Error ", e);
         ErrorResponse error = ErrorResponse.of(GlobalErrorCode.SERVER_ERROR);
         return ResponseEntity.status(error.getHttpStatus()).body(error);
+    }
+
+    //* JWT */
+    // JWT 만료
+    @ExceptionHandler(JwtExpiredException.class)
+    public ResponseEntity<ErrorResponse<?>> handleJwtExpiredException(JwtExpiredException e) {
+        ErrorResponse<?> error = ErrorResponse.of("JWT_401_EXPIRED", e.getMessage(), HttpStatus.UNAUTHORIZED.value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    // 잘못된 토큰
+    @ExceptionHandler(JwtInvalidException.class)
+    public ResponseEntity<ErrorResponse<?>> handleJwtInvalidException(JwtInvalidException e) {
+        ErrorResponse<?> error = ErrorResponse.of("JWT_401_INVALID", e.getMessage(), HttpStatus.UNAUTHORIZED.value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    // 지원하지 않는 형식
+    @ExceptionHandler(JwtUnsupportedException.class)
+    public ResponseEntity<ErrorResponse<?>> handleJwtUnsupportedException(JwtUnsupportedException e) {
+        ErrorResponse<?> error = ErrorResponse.of("JWT_401_UNSUPPORTED", e.getMessage(), HttpStatus.UNAUTHORIZED.value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    // 손상된 구조
+    @ExceptionHandler(JwtMalformedException.class)
+    public ResponseEntity<ErrorResponse<?>> handleJwtMalformedException(JwtMalformedException e) {
+        ErrorResponse<?> error = ErrorResponse.of("JWT_401_MALFORMED", e.getMessage(), HttpStatus.UNAUTHORIZED.value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
 
 }
