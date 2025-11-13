@@ -49,7 +49,7 @@ public record QuizQaResponse(
         public QuestionDto(QuizQuestion question, List<OptionDto> options) {
             this(
                     question.getId(),
-                    question.getType().toString(),
+                    question.getType().getDisplayName(),
                     question.getQuestionText(),
                     question.getCorrectAnswer(),
                     question.getExplanation(),

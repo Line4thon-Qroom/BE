@@ -68,7 +68,7 @@ public class QuizDetailResponse {
         public static QuestionInfo fromEntity(QuizQuestion q, int index) {
             return QuestionInfo.builder()
                     .id(q.getId())
-                    .type(convertTypeToKorean(q.getType()))
+                    .type(q.getType().getDisplayName())
                     .question_number(index + 1)
                     .question_text(q.getQuestionText())
                     .correct_answer(q.getCorrectAnswer())
@@ -89,14 +89,6 @@ public class QuizDetailResponse {
             }
 
             return result;
-        }
-
-        static String convertTypeToKorean(Type type) {
-            return switch (type) {
-                case OX -> "OX";
-                case MULTIPLE_CHOICE -> "객관식";
-                case SHORT_ANSWER -> "단답형";
-            };
         }
     }
 

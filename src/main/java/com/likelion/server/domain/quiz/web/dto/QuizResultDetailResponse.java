@@ -10,8 +10,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static com.likelion.server.domain.quiz.web.dto.QuizDetailResponse.QuestionInfo.convertTypeToKorean;
-
 @Builder
 public record QuizResultDetailResponse(
         QuizResultInfo quiz_result,
@@ -64,7 +62,7 @@ public record QuizResultDetailResponse(
                             .question_id(q.getId())
                             .question_number(number.getAndIncrement())
                             .question_text(q.getQuestionText())
-                            .type(convertTypeToKorean(q.getType()))
+                            .type(q.getType().getDisplayName())
                             .explanation(q.getExplanation())
                             .options(q.getOptions() == null ? List.of() :
                                     q.getOptions().stream()
