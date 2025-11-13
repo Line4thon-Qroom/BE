@@ -40,10 +40,10 @@ public class QuizDetailResponse {
         public static QuizInfo fromEntity(Quiz quiz) {
             return QuizInfo.builder()
                     .id(quiz.getId())
-                    .pdf_id(quiz.getPdf().getId())
+                    .pdf_id(quiz.getPdf() != null ? quiz.getPdf().getId() : null)
                     .group_name(quiz.getGroup().getName())
-                    .title(quiz.getPdf().getFileName())
-                    .difficulty(quiz.getDifficulty().name())
+                    .title(quiz.getPdf() != null ? quiz.getPdf().getFileName() : quiz.getTitle())
+                    .difficulty(quiz.getDifficulty() != null ? quiz.getDifficulty().name() : null)
                     .round(quiz.getRound())
                     .total_questions(quiz.getTotalQuestions())
                     .createdAt(quiz.getCreatedAt())

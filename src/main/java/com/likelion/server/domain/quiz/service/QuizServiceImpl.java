@@ -1,5 +1,6 @@
 package com.likelion.server.domain.quiz.service;
 
+import com.likelion.server.domain.group.entity.Group;
 import com.likelion.server.domain.pdf.entity.Pdf;
 import com.likelion.server.domain.pdf.repository.PdfRepository;
 import com.likelion.server.domain.qa.entity.QaBoard;
@@ -8,16 +9,15 @@ import com.likelion.server.domain.qa.repository.QaBoardRepository;
 import com.likelion.server.domain.qa.repository.QaCommentRepository;
 import com.likelion.server.domain.qa.repository.QaPostRepository;
 import com.likelion.server.domain.quiz.entity.Quiz;
+import com.likelion.server.domain.quiz.entity.QuizOption;
 import com.likelion.server.domain.quiz.entity.QuizQuestion;
 import com.likelion.server.domain.quiz.entity.enums.Difficulty;
+import com.likelion.server.domain.quiz.entity.enums.Type;
 import com.likelion.server.domain.quiz.exception.*;
 import com.likelion.server.domain.quiz.repository.QuizOptionRepository;
 import com.likelion.server.domain.quiz.repository.QuizRepository;
 import com.likelion.server.domain.quiz.repository.QuizQuestionRepository;
-import com.likelion.server.domain.quiz.web.dto.CreateQuizRequest;
-import com.likelion.server.domain.quiz.web.dto.CreateQuizResponse;
-import com.likelion.server.domain.quiz.web.dto.QuizDetailResponse;
-import com.likelion.server.domain.quiz.web.dto.QuizQaResponse;
+import com.likelion.server.domain.quiz.web.dto.*;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -74,8 +74,8 @@ public class QuizServiceImpl implements QuizService {
                 .build();
     }
 
-
-    // 1. 퀴즈 생성
+///////////////////////////////////////////////////////////////////////////////////
+    // 퀴즈 생성 1 - AI
     @Override
     public CreateQuizResponse createQuiz(Long userId, CreateQuizRequest request) {
 
@@ -124,6 +124,69 @@ public class QuizServiceImpl implements QuizService {
         }
 
         // 응답 DTO 변환
+        return CreateQuizResponse.fromEntity(quiz, qaBoard);
+    }
+
+
+    // 퀴즈 생성 2 - 사용자
+    @Override
+    public CreateQuizResponse createUserQuiz(Long userId, CreateUserQuizRequest request) {
+        // 그룹 유효성 검증
+        Group group = em.find(Group.class, request.getGroup_id());
+        if (group == null) throw new QuizGroupNotFoundException();
+
+
+        List<String> types = request.getQuestions().stream()
+                .map(CreateUserQuizRequest.UserQuestionRequest::getType)
+                .distinct()
+                .toList();
+
+        // Quiz 엔티티 생성 (AI·PDF 없이)
+        Quiz quiz = Quiz.builder()
+                .group(group)
+                .title(request.getTitle())
+                .round(1)
+                .totalQuestions(request.getQuestions().size())
+                .questionTypes(String.join(",", types))
+                .build();
+
+        quizRepository.saveAndFlush(quiz);
+
+        // 각 문제 저장
+        for (CreateUserQuizRequest.UserQuestionRequest q : request.getQuestions()) {
+            Type type = Type.fromKorean(q.getType());
+
+            QuizQuestion question = QuizQuestion.builder()
+                    .quiz(quiz)
+                    .type(type)
+                    .questionText(q.getQuestion_text())
+                    .correctAnswer(q.getCorrect_answer())
+                    .explanation(q.getExplanation())
+                    .build();
+
+            quizQuestionRepository.save(question);
+
+            // 객관식 보기 저장
+            if (type == Type.MULTIPLE_CHOICE && q.getOptions() != null) {
+                for (CreateUserQuizRequest.OptionRequest opt : q.getOptions()) {
+                    QuizOption option = QuizOption.builder()
+                            .question(question)
+                            .optionText(opt.getOption_text())
+                            .build();
+                    quizOptionRepository.save(option);
+                }
+            }
+        }
+
+        // QA 게시판 자동 생성
+        QaBoard qaBoard = QaBoard.builder()
+                .quiz(quiz)
+                .group(group)
+                .boardName(request.getTitle() + " (made)")
+                .build();
+        qaBoardRepository.save(qaBoard);
+
+        // 응답 반환
         return CreateQuizResponse.fromEntity(quiz, qaBoard);
     }
 

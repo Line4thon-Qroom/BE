@@ -29,10 +29,10 @@ public record QuizQaResponse(
             this(
                     quiz.getId(),
                     quiz.getTitle(),
-                    quiz.getDifficulty().getKorean(),
+                    quiz.getDifficulty() != null ? quiz.getDifficulty().getKorean() : null,
                     quiz.getRound(),
                     quiz.getTotalQuestions(),
-                    quiz.getPdf().getGroup().getName(),
+                    quiz.getGroup() != null ? quiz.getGroup().getName() : null,
                     questions
             );
         }

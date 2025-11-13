@@ -29,9 +29,9 @@ public class CreateQuizResponse {
     public static CreateQuizResponse fromEntity(Quiz quiz, QaBoard qaBoard) {
         return CreateQuizResponse.builder()
                 .id(quiz.getId())
-                .pdf_id(quiz.getPdf().getId())
+                .pdf_id(quiz.getPdf() != null ? quiz.getPdf().getId() : null)
                 .round(quiz.getRound())
-                .difficulty(quiz.getDifficulty().name())
+                .difficulty(quiz.getDifficulty() != null ? quiz.getDifficulty().name() : null)
                 .question_types(List.of(quiz.getQuestionTypes().split(",")))
                 .total_questions(quiz.getTotalQuestions())
                 .qa_board(
