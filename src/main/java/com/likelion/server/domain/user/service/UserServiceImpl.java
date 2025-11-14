@@ -151,7 +151,6 @@ public class UserServiceImpl implements UserService {
                 // 퀴즈에 대한 점수(QuizResult) 조회 (DB 호출 1번)
                 Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
 
-                // !--- 수정된 부분 ---!
                 // calculateProgress 메서드에 이미 조회한 resultOpt를 넘겨줍니다.
                 String progress = calculateProgress(quiz, resultOpt);
 
