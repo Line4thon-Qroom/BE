@@ -44,32 +44,40 @@ jobs:
       - name: Build JAR
         run: ./gradlew bootJar -x test --no-daemon # 테스트 건너뛰고 배포용 JAR 빌드
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4 # 아티팩트로 업로드
-        with:
-          name: app-jar
-          path: build/libs/*.jar
+      #- name: Upload JAR artifact
+      #  uses: actions/upload-artifact@v4 # 아티팩트로 업로드
+      #  with:
+      #    name: app-jar
+      #    path: build/libs/*.jar
 
-  docker-push: # 2) Docker 이미지 빌드/푸시 Job — PR에서는 실행 X
+  docker-push:
     name: Docker Build & Push
-    # 조건: PR 이벤트가 아니고 && 대상 브랜치가 main일 때만 이미지 푸시
     if: github.event_name != 'pull_request' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    needs: build # 빌드 Job 성공 후에만 실행
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download JAR artifact # build에서 만든 아티팩트 다운로드
-        uses: actions/download-artifact@v4
+      - name: Set up Temurin JDK
+        uses: actions/setup-java@v4
         with:
-          name: app-jar
-          path: build/libs
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build JAR again (no artifact)
+        run: ./gradlew bootJar -x test --no-daemon
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3 # Docker Hub 로그인
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -77,8 +85,8 @@ jobs:
       - name: Build & Push image
         uses: docker/build-push-action@v6
         with:
-          context: . # 현재 디렉토리를 빌드 컨텍스트로 사용
-          push: true # 빌드한 이미지를 Docker Hub에 푸시
+          context: .
+          push: true
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
