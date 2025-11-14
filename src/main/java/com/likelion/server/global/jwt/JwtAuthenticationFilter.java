@@ -23,7 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtUserDetailsService userDetailsService;
-    private final AuthenticationEntryPoint authenticationEntryPoint; // ✅ 추가
+    private final AuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -34,26 +34,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
 
-            if (token != null) {
-                // ⛳ 여기서 JwtTokenProvider가 Jwt*Exception들을 throw
-                jwtTokenProvider.validateToken(token);
-
-                String nickname = jwtTokenProvider.getNicknameFromToken(token);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(nickname);
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 1토큰이 없으면 그냥 다음 필터로 pass
+            if (token == null) {
+                filterChain.doFilter(request, response);
+                return;
             }
 
+            // 유효한 토큰이면 인증 설정
+            jwtTokenProvider.validateToken(token); // BaseException 가능
+
+            String nickname = jwtTokenProvider.getNicknameFromToken(token);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(nickname);
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);
 
         } catch (BaseException e) { // JwtExpiredException, JwtInvalidException 등
-            // EntryPoint가 ErrorResponse(JSON)로 응답할 수 있게 예외를 전달
-            request.setAttribute("jwt_exception", e); // ✅ EntryPoint에서 꺼내 쓸 키
+            // 인증이 필요 없는 URL에서는 JWT 오류를 조용히 무시하고 통과시킴
+            String uri = request.getRequestURI();
+            if (uri.startsWith("/signup") || uri.startsWith("/login") || uri.startsWith("/refresh")) {
+                // 로그 안 찍고 통과
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 나머지 URL은 기존처럼 EntryPoint 로 처리
+            request.setAttribute("jwt_exception", e);
             SecurityContextHolder.clearContext();
             authenticationEntryPoint.commence(
-                    request, response,
+                    request,
+                    response,
                     new org.springframework.security.authentication.InsufficientAuthenticationException(e.getMessage(), e)
             );
         }
