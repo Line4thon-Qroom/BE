@@ -18,6 +18,7 @@ public record QuizResultDetailResponse(
     @Builder
     public record QuizResultInfo(
             Long quiz_id,
+            String quiz_title,
             String group_name,
             Integer score,
             Integer correct_count,
@@ -78,6 +79,7 @@ public record QuizResultDetailResponse(
         return QuizResultDetailResponse.builder()
                 .quiz_result(QuizResultInfo.builder()
                         .quiz_id(result.getQuiz().getId())
+                        .quiz_title(result.getQuiz().getTitle())
                         .group_name(result.getQuiz().getGroup().getName())
                         .score(result.getScore())
                         .correct_count(result.getCorrectCount())
