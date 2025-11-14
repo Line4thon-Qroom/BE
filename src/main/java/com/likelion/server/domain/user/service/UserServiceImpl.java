@@ -148,10 +148,12 @@ public class UserServiceImpl implements UserService {
             if (qaBoardOpt.isPresent()) {
                 QaBoard qaBoard = qaBoardOpt.get();
 
-                // 퀴즈에 대한 점수(QuizResult) 조회
+                // 퀴즈에 대한 점수(QuizResult) 조회 (DB 호출 1번)
                 Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
 
-                String progress = calculateProgress(user, quiz);
+                // !--- 수정된 부분 ---!
+                // calculateProgress 메서드에 이미 조회한 resultOpt를 넘겨줍니다.
+                String progress = calculateProgress(quiz, resultOpt);
 
                 qaBoardDtos.add(new HomeResponse.QaBoardDto(qaBoard, progress));
             }
@@ -258,9 +260,9 @@ public class UserServiceImpl implements UserService {
     }
 
     // progress 계산 메서드
-    private String calculateProgress(User user, Quiz quiz) {
+    private String calculateProgress(Quiz quiz, Optional<QuizResult> resultOpt) {
         // 퀴즈에 대한 점수(QuizResult) 조회
-        Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
+        // Optional<QuizResult> resultOpt = quizResultRepository.findByUserAndQuiz(user, quiz);
 
         int total = (quiz.getTotalQuestions() != null) ? quiz.getTotalQuestions() : 0;
 
