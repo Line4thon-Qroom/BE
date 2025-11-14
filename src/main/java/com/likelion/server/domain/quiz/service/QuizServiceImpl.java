@@ -157,6 +157,7 @@ public class QuizServiceImpl implements QuizService {
                 .group(group)
                 .title(request.getTitle())
                 .round(1)
+                .difficulty(Difficulty.중)
                 .totalQuestions(request.getQuestions().size())
                 .questionTypes(String.join(",", types))
                 .build();

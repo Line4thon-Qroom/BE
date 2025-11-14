@@ -37,7 +37,7 @@ public record WrongNoteDetailResponse(
                     quiz.getTitle(),
                     quiz.getGroup().getName(),
                     quiz.getRound(),
-                    quiz.getDifficulty().getKorean(),
+                    quiz.getDifficulty() != null ? quiz.getDifficulty().getKorean() : null,
                     result.getScore(),
                     total,
                     calculatedAccuracy
