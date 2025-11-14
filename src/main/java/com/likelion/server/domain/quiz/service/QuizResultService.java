@@ -32,12 +32,21 @@ public class QuizResultService {
 
     public QuizResult startQuiz(Long userId, QuizResultRequest request) {
 
+        Long quizId = request.quiz_id();
+
         Quiz quiz = quizRepository.findById(request.quiz_id())
                 .orElseThrow(() -> new IllegalArgumentException("해당 퀴즈를 찾을 수 없습니다."));
 
         User user = em.getReference(User.class, userId);
         Group group = quiz.getGroup();
 
+        // 1) 이미 풀었는지 체크
+        QuizResult existing = quizResultRepository.findByUserIdAndQuizId(userId, quizId);
+        if (existing != null) {
+            return existing;
+        }
+
+        // 2) 처음 푸는 경우에만 생성
         QuizResult quizResult = request.toEntity(quiz, user, group);
 
         return quizResultRepository.save(quizResult);
