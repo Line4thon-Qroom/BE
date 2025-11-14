@@ -48,9 +48,9 @@ public class QuizResultService {
         QuizResult result = quizResultRepository.findById(quizResultId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 퀴즈 결과를 찾을 수 없습니다."));
 
-        //if (!result.getUser().getId().equals(userId)) {
-        //    throw new SecurityException("본인의 결과만 조회할 수 있습니다.");
-        //}
+        if (!result.getUser().getId().equals(userId)) {
+            throw new SecurityException("본인의 결과만 조회할 수 있습니다.");
+        }
 
         // 사용자 답변 목록 조회
         List<QuizUserAnswer> answers = quizUserAnswerRepository.findAllByQuizResultId(quizResultId);
